@@ -1,0 +1,13 @@
+defaults:
+  - env: franka_panda_default
+  - reward: dense_manipulation
+  - algo: ppo
+  - experiment: default_run
+  - _self_
+
+seed: 42
+video_dump: False
+wandb:
+  project: "isaaclab_franka_suite"
+  entity: "your_team_name"
+  mode: "online"

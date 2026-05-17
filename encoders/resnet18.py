@@ -28,12 +28,15 @@ class FrozenResNet18(nn.Module):
         # Explicitly set the agent to evaluation mode.
         self.feature_extractor.eval()
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         The encoder's forward pass, which takes in a batch of images and outputs a batch of 512d vectors.
 
         Args:
             x: Raw image data to be processed.
+        
+        Returns:
+            torch.Tensor: A batch of 512d vectors representing the features of the input images.
         """
         with torch.no_grad(): # Make sure no mathematical history is saved.
             features = self.feature_extractor(x) # Feeding the raw x image to ResNet's 9 children layers.
@@ -41,9 +44,16 @@ class FrozenResNet18(nn.Module):
         
 _GLOBAL_ENCODER = None # A flag to identify if the agent has already been laoded to a GPU memory.
 
-def get_platform_encoder(device):
+def get_platform_encoder(device: str) -> FrozenResNet18:
     """
     A getter function for accessing and setting the encoder.
+
+    Args:
+        device: The GPU to which the network will be linked to.
+
+    Returns:
+        FrozenResNet18: The encoder network, which is either loaded to the GPU for the first time, 
+        or already exists in the GPU memory and is returned for use.
     """
     global _GLOBAL_ENCODER
     if _GLOBAL_ENCODER is None:
