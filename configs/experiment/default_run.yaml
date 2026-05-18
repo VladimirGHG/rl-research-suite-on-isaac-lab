@@ -1,0 +1,14 @@
+defaults:
+  - override /env: franka_panda_default
+  - override /algo: ppo
+  - override /reward: dense_manipulation
+
+name: "franka_panda_baseline_smoke_test"
+notes: "Standard baseline verification run utilizing proprioception and frozen ResNet18 visual embeddings."
+
+eval_steps: 2500
+eval_repo: "some/franka_panda_baselines" 
+eval_file: "some_policy.zip"
+
+total_timesteps: 1000000
+checkpoint_interval: 50000
