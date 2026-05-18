@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import hydra
 import torch
 import numpy as np
