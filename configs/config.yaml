@@ -9,5 +9,5 @@ seed: 42
 video_dump: False
 wandb:
   project: "isaaclab_franka_suite"
-  entity: "your_team_name"
+  entity: "entity_name"
   mode: "online"
