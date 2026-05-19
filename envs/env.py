@@ -71,6 +71,6 @@ class IsaacLabPlatformEnv(ManagerBasedRLEnv):
         obs_dict, extras = super().reset()
         return obs_dict["policy"], extras
 
-if __name__ == "main":
+if __name__ == "__main__":
     ex = IsaacLabPlatformEnv(ManagerBasedRLEnvCfg())
     print("Observation space:", ex.observation_space)
