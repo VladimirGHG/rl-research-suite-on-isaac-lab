@@ -41,12 +41,17 @@ class MyObservationsCfg:
     
     policy: PolicyCfg = PolicyCfg()
 
+from isaaclab.envs.mdp.actions import (
+    JointEffortActionCfg,       # apply torques directly
+    JointPositionActionCfg,     # position targets
+    JointVelocityActionCfg,     # velocity targets
+)
 # Actions: a @configclass whose attributes are ActionTermCfg instances
 @configclass
 class MyActionsCfg:
-    joint_effort: ActionTermCfg = ActionTermCfg(
-        class_type=mdp.JointEffortAction,
-        asset_name="terrain",
+    joint_effort: JointEffortActionCfg = JointEffortActionCfg(
+        asset_name="robot",
+        joint_names=[".*"],
     )
 
 # Rewards: a @configclass whose attributes are RewardTermCfg instances
@@ -59,7 +64,17 @@ class MyRewardsCfg:
 class MyTerminationsCfg:
     time_out: TerminationTermCfg = TerminationTermCfg(func=mdp.time_out, time_out=True)
 
+from isaaclab.assets import ArticulationCfg, RigidObjectCfg
+from isaaclab.sim.spawners.shapes import CuboidCfg
+import isaaclab.sim as sim_utils
+from isaaclab.scene import InteractiveSceneCfg
+from thirdparty.Isaaclab.source.isaaclab_assets.isaaclab_assets.robots.cartpole import CARTPOLE_CFG
 
+@configclass
+class MySceneCfg(InteractiveSceneCfg):
+    robot: ArticulationCfg = CARTPOLE_CFG.replace(
+        prim_path="{ENV_REGEX_NS}/Robot"
+    )
 try: 
     from isaaclab.envs import ManagerBasedRLEnv, ManagerBasedRLEnvCfg
     from isaaclab.scene import InteractiveSceneCfg
@@ -71,12 +86,14 @@ try:
         def __post_init__(self):
             self.decimation = 2
             self.episode_length_s = 10.0
-            self.scene = InteractiveSceneCfg(num_envs=4, env_spacing=2.5, replicate_physics=True)
+            self.scene = MySceneCfg(num_envs=4, env_spacing=2.5, replicate_physics=True)
+            # A blank scene config, since the actual scene will be defined in the .yaml file and loaded by the SceneManager. (FOR TESTING)
+            # self.scene = InteractiveSceneCfg(num_envs=4, env_spacing=2.5, replicate_physics=True)
             self.observations = MyObservationsCfg()
             self.actions = MyActionsCfg()
             self.rewards = MyRewardsCfg()
             self.terminations = MyTerminationsCfg()
-            super().__post_init__()  # call only once, at the end
+            super().__post_init__()
 
 except ImportError:
     print("MOCK MODE")
@@ -134,7 +151,12 @@ class IsaacLabPlatformEnv(ManagerBasedRLEnv):
         self.observation_space = gym.spaces.Box(
             low=-np.inf, high=np.inf, shape=(self.total_obs_dim,), dtype=np.float32
         )
-        self.action_space = self.action_manager.action_space
+        self.action_space = gym.spaces.Box(
+            low=-np.inf,
+            high=np.inf,
+            shape=(self.action_manager.total_action_dim,),
+            dtype=np.float32,
+        )
 
     def step(self, action: torch.Tensor): # Take an action in the environment, return the new observation, reward, done, and info.
         obs_dict, reward, terminated, truncated, extras = super().step(action)
