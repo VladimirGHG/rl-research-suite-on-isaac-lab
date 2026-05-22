@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+
 from isaaclab.app import AppLauncher
 import traceback
 import gymnasium as gym
@@ -160,16 +161,39 @@ class IsaacLabPlatformEnv(ManagerBasedRLEnv):
 
     def step(self, action: torch.Tensor): # Take an action in the environment, return the new observation, reward, done, and info.
         obs_dict, reward, terminated, truncated, extras = super().step(action)
-        return obs_dict["policy"], reward, terminated, truncated, extras
+        return obs_dict, reward, terminated, truncated, extras
 
     def reset(self): # Reset the envionment, return the initial observation, and start a new episode.
         obs_dict, extras = super().reset()
-        return obs_dict["policy"], extras
+        return obs_dict, extras
 
 if __name__ == "__main__":
+
+    from stable_baselines3 import PPO
+    from stable_baselines3.common.vec_env import DummyVecEnv
+    from isaaclab_rl.sb3 import Sb3VecEnvWrapper
 
     cfg = MyEnvCfg()    
     cfg.sim.device = "cuda:0"
     print("Initializing Isaac Lab environment...")
     ex = IsaacLabPlatformEnv(cfg=cfg)
+
+    wrapped_env = Sb3VecEnvWrapper(ex)
+
+    model = PPO(
+        policy="MlpPolicy",
+        env=wrapped_env,
+        verbose=1,
+        n_steps=32,
+        batch_size=32,
+        n_epochs=5,
+        learning_rate=3e-4,
+        device="cuda",
+    )
+    model.learn(total_timesteps=100_000)
+
+    model.save("ppo_reach")
+
+    ex.close()
+    simulation_app.close()
     print("Observation space:", ex.observation_space)
