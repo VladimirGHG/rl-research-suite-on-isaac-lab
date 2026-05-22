@@ -1,13 +1,104 @@
+import argparse
+import os
+import sys
+
+from isaaclab.app import AppLauncher
+import traceback
 import gymnasium as gym
 import torch
 import numpy as np
 
-try: # Attempt to get the actual ManagerBasedRLEnv, if available.
-    from omni.isaac.lab.envs import ManagerBasedRLEnv
-    from omni.isaac.lab.envs.manager_based_rl_env_cfg import ManagerBasedRLEnvCfg
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# BOOT THE ENGINE FIRST
+# This step dynamically injects 'pxr' and Omniverse paths into Python
+parser = argparse.ArgumentParser(description="Custom Isaac Lab script.")
+parser.add_argument("--num_envs", type=int, default=128, help="Number of environments")
+AppLauncher.add_app_launcher_args(parser)
+args_cli = parser.parse_args()
+
+app_launcher = AppLauncher(args_cli)
+simulation_app = app_launcher.app
+
+from isaaclab.envs import mdp
+
+from isaaclab.utils import configclass
+from isaaclab.managers import (
+    ObservationGroupCfg,
+    ObservationTermCfg,
+    ActionTermCfg,
+    RewardTermCfg,
+    TerminationTermCfg,
+)
+from isaaclab.utils import configclass
+
+# Observations: a @configclass whose attributes are ObservationGroupCfg instances
+@configclass
+class MyObservationsCfg:
+    @configclass
+    class PolicyCfg(ObservationGroupCfg):
+        # Each attribute here is an ObservationTermCfg
+        joint_pos: ObservationTermCfg = ObservationTermCfg(func=mdp.joint_pos)
+        joint_vel: ObservationTermCfg = ObservationTermCfg(func=mdp.joint_vel)
+    
+    policy: PolicyCfg = PolicyCfg()
+
+from isaaclab.envs.mdp.actions import (
+    JointEffortActionCfg,       # apply torques directly
+    JointPositionActionCfg,     # position targets
+    JointVelocityActionCfg,     # velocity targets
+)
+# Actions: a @configclass whose attributes are ActionTermCfg instances
+@configclass
+class MyActionsCfg:
+    joint_effort: JointEffortActionCfg = JointEffortActionCfg(
+        asset_name="robot",
+        joint_names=[".*"],
+    )
+
+# Rewards: a @configclass whose attributes are RewardTermCfg instances
+@configclass
+class MyRewardsCfg:
+    alive: RewardTermCfg = RewardTermCfg(func=mdp.is_alive, weight=1.0)
+
+# Terminations: a @configclass whose attributes are TerminationTermCfg instances
+@configclass
+class MyTerminationsCfg:
+    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp.time_out, time_out=True)
+
+from isaaclab.assets import ArticulationCfg, RigidObjectCfg
+from isaaclab.sim.spawners.shapes import CuboidCfg
+import isaaclab.sim as sim_utils
+from isaaclab.scene import InteractiveSceneCfg
+from thirdparty.Isaaclab.source.isaaclab_assets.isaaclab_assets.robots.cartpole import CARTPOLE_CFG
+
+@configclass
+class MySceneCfg(InteractiveSceneCfg):
+    robot: ArticulationCfg = CARTPOLE_CFG.replace(
+        prim_path="{ENV_REGEX_NS}/Robot"
+    )
+try: 
+    from isaaclab.envs import ManagerBasedRLEnv, ManagerBasedRLEnvCfg
+    from isaaclab.scene import InteractiveSceneCfg
+    # All of these settings are going to be imported from the local .managers/ folder, 
+    # where the wrappers for those setting are defined, to get their parameters from the .yaml files.
+    # At the current stage this is just a test with the default manager classes to check whether the environment starts correctly.
+    @configclass
+    class MyEnvCfg(ManagerBasedRLEnvCfg):
+        def __post_init__(self):
+            self.decimation = 2
+            self.episode_length_s = 10.0
+            self.scene = MySceneCfg(num_envs=4, env_spacing=2.5, replicate_physics=True)
+            # A blank scene config, since the actual scene will be defined in the .yaml file and loaded by the SceneManager. (FOR TESTING)
+            # self.scene = InteractiveSceneCfg(num_envs=4, env_spacing=2.5, replicate_physics=True)
+            self.observations = MyObservationsCfg()
+            self.actions = MyActionsCfg()
+            self.rewards = MyRewardsCfg()
+            self.terminations = MyTerminationsCfg()
+            super().__post_init__()
+
 except ImportError:
     print("MOCK MODE")
-
+    traceback.print_exc()
     # Imitate Isaac Lab configuration.
     class ManagerBasedRLEnvCfg:
         def __init__(self):
@@ -61,16 +152,48 @@ class IsaacLabPlatformEnv(ManagerBasedRLEnv):
         self.observation_space = gym.spaces.Box(
             low=-np.inf, high=np.inf, shape=(self.total_obs_dim,), dtype=np.float32
         )
-        self.action_space = self.action_manager.action_space
+        self.action_space = gym.spaces.Box(
+            low=-np.inf,
+            high=np.inf,
+            shape=(self.action_manager.total_action_dim,),
+            dtype=np.float32,
+        )
 
     def step(self, action: torch.Tensor): # Take an action in the environment, return the new observation, reward, done, and info.
         obs_dict, reward, terminated, truncated, extras = super().step(action)
-        return obs_dict["policy"], reward, terminated, truncated, extras
+        return obs_dict, reward, terminated, truncated, extras
 
     def reset(self): # Reset the envionment, return the initial observation, and start a new episode.
         obs_dict, extras = super().reset()
-        return obs_dict["policy"], extras
+        return obs_dict, extras
 
 if __name__ == "__main__":
-    ex = IsaacLabPlatformEnv(ManagerBasedRLEnvCfg())
+
+    from stable_baselines3 import PPO
+    from stable_baselines3.common.vec_env import DummyVecEnv
+    from isaaclab_rl.sb3 import Sb3VecEnvWrapper
+
+    cfg = MyEnvCfg()    
+    cfg.sim.device = "cuda:0"
+    print("Initializing Isaac Lab environment...")
+    ex = IsaacLabPlatformEnv(cfg=cfg)
+
+    wrapped_env = Sb3VecEnvWrapper(ex)
+
+    model = PPO(
+        policy="MlpPolicy",
+        env=wrapped_env,
+        verbose=1,
+        n_steps=32,
+        batch_size=32,
+        n_epochs=5,
+        learning_rate=3e-4,
+        device="cuda",
+    )
+    model.learn(total_timesteps=100_000)
+
+    model.save("ppo_reach")
+
+    ex.close()
+    simulation_app.close()
     print("Observation space:", ex.observation_space)
