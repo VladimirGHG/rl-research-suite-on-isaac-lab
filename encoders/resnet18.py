@@ -1,19 +1,21 @@
 import torch
 from torch import nn
 from torchvision import models
+import gym
+from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
-class FrozenResNet18(nn.Module):
+class FrozenResNet18(BaseFeaturesExtractor):
     """
     A ResNet18 neural network wrapper, used for converting multi-hundred-thousand-element matrices to 512d vectors.
     It is a Frozen network since its weights are locked and cannot be changed to preserve the pre-trained network's stability.
     """
-    def __init__(self):
+    def __init__(self, observation_space: gym.spaces.Box, features_dim:int = 512):
         """
         FrozenResNet18 initialization with default ImageNet weights, 
         and only 9 children layers, excluding last classification layer.
         The network is in the Evaluation mode so that no weight changes happen.
         """
-        super().__init__()
+        super().__init__(observation_space, features_dim)
 
         # Creating the base resnet18 agent using the default ImageNet weights.
         base_resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
