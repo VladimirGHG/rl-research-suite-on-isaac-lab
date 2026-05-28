@@ -69,6 +69,7 @@ from isaaclab.assets import ArticulationCfg, RigidObjectCfg
 from isaaclab.sim.spawners.shapes import CuboidCfg
 import isaaclab.sim as sim_utils
 from isaaclab.scene import InteractiveSceneCfg
+from isaaclab.sensors import TiledCameraCfg
 from thirdparty.Isaaclab.source.isaaclab_assets.isaaclab_assets.robots.cartpole import CARTPOLE_CFG
 
 @configclass
@@ -87,13 +88,33 @@ try:
         def __post_init__(self):
             self.decimation = 2
             self.episode_length_s = 10.0
-            self.scene = MySceneCfg(num_envs=4, env_spacing=2.5, replicate_physics=True)
+            self.scene = MySceneCfg(num_envs=512, env_spacing=2.5, replicate_physics=True)
             # A blank scene config, since the actual scene will be defined in the .yaml file and loaded by the SceneManager. (FOR TESTING)
             # self.scene = InteractiveSceneCfg(num_envs=4, env_spacing=2.5, replicate_physics=True)
             self.observations = MyObservationsCfg()
             self.actions = MyActionsCfg()
             self.rewards = MyRewardsCfg()
             self.terminations = MyTerminationsCfg()
+
+            self.scene.robot_camera = TiledCameraCfg(
+                prim_path="{ENV_REGEX_NS}/Robot/robot_camera",
+                update_period=0.0,
+                height=84,
+                width=84,
+                data_types=["rgb"],
+                spawn=sim_utils.PinholeCameraCfg(
+                    focal_length=24.0,
+                    focus_distance=400.0,
+                    horizontal_aperture=20.955,
+                    clipping_range=(0.1, 1.0e5),
+                ),
+                # Position the camera 2.5 meters away and 1.5 meters up looking back down
+                offset=TiledCameraCfg.OffsetCfg(
+                    pos=(-2.5, 0.0, 1.5),
+                    rot=(0.9945, 0.0, 0.1045, 0.0), # Direct quaternion orientation tilt
+                    convention="world"
+                )
+            )
             super().__post_init__()
 
 except ImportError:
@@ -149,51 +170,81 @@ class IsaacLabPlatformEnv(ManagerBasedRLEnv):
         self.total_obs_dim = raw_policy_tensor.shape[-1] # Get the total observation dimension from the shape of the policy's observation tensor.
 
         # Define the observation and action spaces based on the initial observation and action manager, with dynamic shapes.
+        # self.observation_space = gym.spaces.Box(
+        #     low=-np.inf, high=np.inf, shape=(self.total_obs_dim,), dtype=np.float32
+        # )
+
         self.observation_space = gym.spaces.Box(
-            low=-np.inf, high=np.inf, shape=(self.total_obs_dim,), dtype=np.float32
+            low=0, high=1.0, shape=(3, 84, 84), dtype=np.float32
         )
         self.action_space = gym.spaces.Box(
-            low=-np.inf,
-            high=np.inf,
+            low=-1.0,
+            high=1.0,
             shape=(self.action_manager.total_action_dim,),
             dtype=np.float32,
         )
+        print(f"Gym Observation Space forcefully set to: {self.observation_space.shape}")
+
+    def _get_synthetic_pixels(self) -> torch.Tensor:
+        """Helper to cleanly pull and format raw synthetic GPU buffers."""
+        raw_pixels = self.scene["robot_camera"].data.output["rgb"] # Shape: [B, 84, 84, 3]
+        
+        processed_pixels = raw_pixels.permute(0, 3, 1, 2).float() / 255.0
+        return processed_pixels
 
     def step(self, action: torch.Tensor): # Take an action in the environment, return the new observation, reward, done, and info.
         obs_dict, reward, terminated, truncated, extras = super().step(action)
-        return obs_dict, reward, terminated, truncated, extras
+        return {"policy": self._get_synthetic_pixels()}, reward, terminated, truncated, extras
 
     def reset(self): # Reset the envionment, return the initial observation, and start a new episode.
         obs_dict, extras = super().reset()
-        return obs_dict, extras
+        return {"policy": self._get_synthetic_pixels()}, extras
 
 if __name__ == "__main__":
-
     from stable_baselines3 import PPO
-    from stable_baselines3.common.vec_env import DummyVecEnv
     from isaaclab_rl.sb3 import Sb3VecEnvWrapper
+    from encoders.resnet18 import FrozenResNet18
 
     cfg = MyEnvCfg()    
     cfg.sim.device = "cuda:0"
-    print("Initializing Isaac Lab environment...")
+    
+    print("Initializing Pixel-Based Environment Platform Wrapper...")
     ex = IsaacLabPlatformEnv(cfg=cfg)
-
     wrapped_env = Sb3VecEnvWrapper(ex)
+    image_space = gym.spaces.Box(
+        low=0.0, 
+        high=1.0, 
+        shape=(3, 84, 84), 
+        dtype=np.float32
+    )
+    wrapped_env.observation_space = image_space
+    ex.observation_space = image_space
+
+    policy_kwargs = dict(
+        features_extractor_class=FrozenResNet18,
+        features_extractor_kwargs=dict(features_dim=512),
+        net_arch=dict(pi=[64, 64], vf=[64, 64])
+    )
 
     model = PPO(
-        policy="MlpPolicy",
+        policy="CnnPolicy",
         env=wrapped_env,
+        policy_kwargs=policy_kwargs,
         verbose=1,
         n_steps=32,
-        batch_size=32,
-        n_epochs=5,
+        batch_size=2048,
+        n_epochs=4,
         learning_rate=3e-4,
         device="cuda",
     )
-    model.learn(total_timesteps=100_000)
+    
+    print("Warming up Tiled Camera buffers...")
+    for _ in range(20):
+        simulation_app.update()
 
-    model.save("ppo_reach")
+    print("Running end-to-end training pipeline...")
+    model.learn(total_timesteps=100_000)
+    model.save("ppo_cartpole_pixels")
 
     ex.close()
     simulation_app.close()
-    print("Observation space:", ex.observation_space)

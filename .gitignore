@@ -1,3 +1,5 @@
 .venv/
 logs/
 outputs/
+ppo_cartpole_pixels.zip
+encoders/__pycache__
