@@ -1,85 +1,82 @@
-import argparse
 import os
 import sys
-
-from isaaclab.app import AppLauncher
 import traceback
+import argparse
+
 import gymnasium as gym
 import torch
 import numpy as np
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-# BOOT THE ENGINE FIRST
-# This step dynamically injects 'pxr' and Omniverse paths into Python
-parser = argparse.ArgumentParser(description="Custom Isaac Lab script.")
-parser.add_argument("--num_envs", type=int, default=128, help="Number of environments")
-AppLauncher.add_app_launcher_args(parser)
-args_cli = parser.parse_args()
+try:
+    from isaaclab.app import AppLauncher
 
-app_launcher = AppLauncher(args_cli)
-simulation_app = app_launcher.app
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    # BOOT THE ENGINE FIRST
+    # This step dynamically injects 'pxr' and Omniverse paths into Python
+    parser = argparse.ArgumentParser(description="Custom Isaac Lab script.")
+    parser.add_argument("--num_envs", type=int, default=128, help="Number of environments")
+    AppLauncher.add_app_launcher_args(parser)
+    args_cli = parser.parse_args()
 
-from isaaclab.envs import mdp
+    app_launcher = AppLauncher(args_cli)
+    simulation_app = app_launcher.app
 
-from isaaclab.utils import configclass
-from isaaclab.managers import (
-    ObservationGroupCfg,
-    ObservationTermCfg,
-    ActionTermCfg,
-    RewardTermCfg,
-    TerminationTermCfg,
-)
-from isaaclab.utils import configclass
+    from isaaclab.envs import mdp
 
-# Observations: a @configclass whose attributes are ObservationGroupCfg instances
-@configclass
-class MyObservationsCfg:
+    from isaaclab.utils import configclass
+    from isaaclab.managers import (
+        ObservationGroupCfg,
+        ObservationTermCfg,
+        ActionTermCfg,
+        RewardTermCfg,
+        TerminationTermCfg,
+    )
+    from isaaclab.utils import configclass
+
+    # Observations: a @configclass whose attributes are ObservationGroupCfg instances
     @configclass
-    class PolicyCfg(ObservationGroupCfg):
-        # Each attribute here is an ObservationTermCfg
-        joint_pos: ObservationTermCfg = ObservationTermCfg(func=mdp.joint_pos)
-        joint_vel: ObservationTermCfg = ObservationTermCfg(func=mdp.joint_vel)
-    
-    policy: PolicyCfg = PolicyCfg()
+    class MyObservationsCfg:
+        @configclass
+        class PolicyCfg(ObservationGroupCfg):
+            # Each attribute here is an ObservationTermCfg
+            joint_pos: ObservationTermCfg = ObservationTermCfg(func=mdp.joint_pos)
+            joint_vel: ObservationTermCfg = ObservationTermCfg(func=mdp.joint_vel)
+        
+        policy: PolicyCfg = PolicyCfg()
 
-from isaaclab.envs.mdp.actions import (
-    JointEffortActionCfg,       # apply torques directly
-    JointPositionActionCfg,     # position targets
-    JointVelocityActionCfg,     # velocity targets
-)
-# Actions: a @configclass whose attributes are ActionTermCfg instances
-@configclass
-class MyActionsCfg:
-    joint_effort: JointEffortActionCfg = JointEffortActionCfg(
-        asset_name="robot",
-        joint_names=[".*"],
-    )
+    from isaaclab.envs.mdp.actions import JointEffortActionCfg
 
-# Rewards: a @configclass whose attributes are RewardTermCfg instances
-@configclass
-class MyRewardsCfg:
-    alive: RewardTermCfg = RewardTermCfg(func=mdp.is_alive, weight=1.0)
+    # Actions: a @configclass whose attributes are ActionTermCfg instances
+    @configclass
+    class MyActionsCfg:
+        joint_effort: JointEffortActionCfg = JointEffortActionCfg(
+            asset_name="robot",
+            joint_names=[".*"],
+        )
 
-# Terminations: a @configclass whose attributes are TerminationTermCfg instances
-@configclass
-class MyTerminationsCfg:
-    time_out: TerminationTermCfg = TerminationTermCfg(func=mdp.time_out, time_out=True)
+    # Rewards: a @configclass whose attributes are RewardTermCfg instances
+    @configclass
+    class MyRewardsCfg:
+        alive: RewardTermCfg = RewardTermCfg(func=mdp.is_alive, weight=1.0)
 
-from isaaclab.assets import ArticulationCfg, RigidObjectCfg
-from isaaclab.sim.spawners.shapes import CuboidCfg
-import isaaclab.sim as sim_utils
-from isaaclab.scene import InteractiveSceneCfg
-from isaaclab.sensors import TiledCameraCfg
-from thirdparty.Isaaclab.source.isaaclab_assets.isaaclab_assets.robots.cartpole import CARTPOLE_CFG
+    # Terminations: a @configclass whose attributes are TerminationTermCfg instances
+    @configclass
+    class MyTerminationsCfg:
+        time_out: TerminationTermCfg = TerminationTermCfg(func=mdp.time_out, time_out=True)
 
-@configclass
-class MySceneCfg(InteractiveSceneCfg):
-    robot: ArticulationCfg = CARTPOLE_CFG.replace(
-        prim_path="{ENV_REGEX_NS}/Robot"
-    )
-try: 
-    from isaaclab.envs import ManagerBasedRLEnv, ManagerBasedRLEnvCfg
+    from isaaclab.assets import ArticulationCfg
+    import isaaclab.sim as sim_utils
     from isaaclab.scene import InteractiveSceneCfg
+    from isaaclab.sensors import TiledCameraCfg
+    from thirdparty.Isaaclab.source.isaaclab_assets.isaaclab_assets.robots.cartpole import CARTPOLE_CFG
+    from isaaclab.envs import ManagerBasedRLEnv, ManagerBasedRLEnvCfg
+
+    @configclass
+    class MySceneCfg(InteractiveSceneCfg):
+        robot: ArticulationCfg = CARTPOLE_CFG.replace(
+            prim_path="{ENV_REGEX_NS}/Robot"
+        )
+
     # All of these settings are going to be imported from the local .managers/ folder, 
     # where the wrappers for those setting are defined, to get their parameters from the .yaml files.
     # At the current stage this is just a test with the default manager classes to check whether the environment starts correctly.
