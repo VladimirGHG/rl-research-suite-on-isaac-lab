@@ -1,3 +1,4 @@
+import importlib
 import os
 import sys
 import traceback
@@ -76,35 +77,48 @@ try:
     from thirdparty.Isaaclab.source.isaaclab_assets.isaaclab_assets.robots.cartpole import CARTPOLE_CFG
     from isaaclab.envs import ManagerBasedRLEnv, ManagerBasedRLEnvCfg
 
-    @configclass
-    class MySceneCfg(InteractiveSceneCfg):
-        robot: ArticulationCfg = CARTPOLE_CFG.replace(
-            prim_path="{ENV_REGEX_NS}/Robot"
-        )
+    # @configclass
+    # class MySceneCfg(InteractiveSceneCfg):
+    #     robot: ArticulationCfg = CARTPOLE_CFG.replace(
+    #         prim_path="{ENV_REGEX_NS}/Robot"
+    #     )
 
+    def load_scene_cfg_from_string(class_path: str):
+        """Dynamically loads an InteractiveSceneCfg class from a string description."""
+        try:
+            module_path, class_name = class_path.split(":")
+            module = importlib.import_module(module_path)
+            return getattr(module, class_name)
+        except Exception as e:
+            print(f"[EnvCfg] Failed to dynamically load scene path '{class_path}': {e}")
+            # Default back to standard baseline if module parsing fails
+            from envs.scene_cfg import FrankaManipulationSceneCfg
+            return FrankaManipulationSceneCfg
+        
     # All of these settings are going to be imported from the local .managers/ folder, 
     # where the wrappers for those setting are defined, to get their parameters from the .yaml files.
     # At the current stage this is just a test with the default manager classes to check whether the environment starts correctly.
     @configclass
     class MyEnvCfg(ManagerBasedRLEnvCfg):
+        scene_class_path: str = "envs.scene_cfg:FrankaManipulationSceneCfg"
+        
         def __post_init__(self):
             self.decimation = 2
             self.episode_length_s = 10.0
-            self.scene = MySceneCfg(num_envs=512, env_spacing=2.5, replicate_physics=True)
+
+            scene_target_path = getattr(self, "scene_class_path", "envs.scene_cfg:FrankaManipulationSceneCfg")
+            ResolvedSceneClass = load_scene_cfg_from_string(scene_target_path)
+            self.scene = ResolvedSceneClass(num_envs=128, env_spacing=2.5, replicate_physics=True)
             # A blank scene config, since the actual scene will be defined in the .yaml file and loaded by the SceneManager. (FOR TESTING)
             # self.scene = InteractiveSceneCfg(num_envs=4, env_spacing=2.5, replicate_physics=True)
             self.observations = MyObservationsCfg()
             self.actions = MyActionsCfg()
 
-            # Change configurations as in rl_base/configs/reward/reward.yaml
-            default_rewards = PlatformRewardManagerCfg()
-            default_rewards.apply_yaml_overrides()
-            self.rewards = default_rewards
-
+            self.rewards = PlatformRewardManagerCfg()
             self.terminations = MyTerminationsCfg()
 
             self.scene.robot_camera = TiledCameraCfg(
-                prim_path="{ENV_REGEX_NS}/Robot/robot_camera",
+                prim_path="{ENV_REGEX_NS}/Robot/panda_hand/wrist_camera",
                 update_period=0.0,
                 height=84,
                 width=84,
@@ -119,7 +133,7 @@ try:
                 offset=TiledCameraCfg.OffsetCfg(
                     pos=(-2.5, 0.0, 1.5),
                     rot=(0.9945, 0.0, 0.1045, 0.0), # Direct quaternion orientation tilt
-                    convention="world"
+                    convention="ros" # Using ROS convention for easier interpretability (x forward, z up)
                 )
             )
             super().__post_init__()
@@ -206,52 +220,3 @@ class IsaacLabPlatformEnv(ManagerBasedRLEnv):
     def reset(self): # Reset the envionment, return the initial observation, and start a new episode.
         obs_dict, extras = super().reset()
         return {"policy": self._get_synthetic_pixels()}, extras
-
-if __name__ == "__main__":
-    from stable_baselines3 import PPO
-    from isaaclab_rl.sb3 import Sb3VecEnvWrapper
-    from encoders.resnet18 import FrozenResNet18
-
-    cfg = MyEnvCfg()    
-    cfg.sim.device = "cuda:0"
-    
-    print("Initializing Pixel-Based Environment Platform Wrapper...")
-    ex = IsaacLabPlatformEnv(cfg=cfg)
-    wrapped_env = Sb3VecEnvWrapper(ex)
-    image_space = gym.spaces.Box(
-        low=0.0, 
-        high=1.0, 
-        shape=(3, 84, 84), 
-        dtype=np.float32
-    )
-    wrapped_env.observation_space = image_space
-    ex.observation_space = image_space
-
-    policy_kwargs = dict(
-        features_extractor_class=FrozenResNet18,
-        features_extractor_kwargs=dict(features_dim=512),
-        net_arch=dict(pi=[64, 64], vf=[64, 64])
-    )
-
-    model = PPO(
-        policy="CnnPolicy",
-        env=wrapped_env,
-        policy_kwargs=policy_kwargs,
-        verbose=1,
-        n_steps=32,
-        batch_size=2048,
-        n_epochs=4,
-        learning_rate=3e-4,
-        device="cuda",
-    )
-    
-    print("Warming up Tiled Camera buffers...")
-    for _ in range(20):
-        simulation_app.update()
-
-    print("Running end-to-end training pipeline...")
-    model.learn(total_timesteps=100_000)
-    model.save("ppo_cartpole_pixels")
-
-    ex.close()
-    simulation_app.close()

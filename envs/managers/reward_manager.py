@@ -32,14 +32,15 @@ class PlatformRewardManagerCfg(RewardManagerCfg):
         """Reads reward.yaml at initialization and updates reward term configurations accordingly."""
         super().__init__()
         
-        yaml_path = os.path.abspath("configs/reward/reward.yaml")
+        current_file_path = os.path.abspath(__file__)
+        repo_root = os.path.dirname(os.path.dirname(os.path.dirname(current_file_path)))
+        yaml_path = os.path.join(repo_root, "configs", "reward", "reward.yaml")
         
         # If file is missing, use defaults.
         if not os.path.exists(yaml_path):
             print(f"[RewardManager] 'reward.yaml' not found at {yaml_path}. Using internal defaults.")
             return
 
-        # Open and parse the file autonomously
         try:
             with open(yaml_path, "r") as f:
                 full_yaml = yaml.safe_load(f)
