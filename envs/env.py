@@ -55,9 +55,14 @@ try:
         )
 
     # Rewards: a @configclass whose attributes are RewardTermCfg instances
-    @configclass
-    class MyRewardsCfg:
-        alive: RewardTermCfg = RewardTermCfg(func=mdp.is_alive, weight=1.0)
+    try:
+        from envs.managers.reward_manager import PlatformRewardManagerCfg
+    except ImportError:
+        print("Failed to import PlatformRewardManagerCfg, using a mock reward configuration.")
+        @configclass
+        class PlatformRewardManagerCfg:
+            alive: RewardTermCfg = RewardTermCfg(func=mdp.is_alive, weight=1.0)
+            def apply_yaml_overrides(self): pass
 
     # Terminations: a @configclass whose attributes are TerminationTermCfg instances
     @configclass
@@ -90,7 +95,12 @@ try:
             # self.scene = InteractiveSceneCfg(num_envs=4, env_spacing=2.5, replicate_physics=True)
             self.observations = MyObservationsCfg()
             self.actions = MyActionsCfg()
-            self.rewards = MyRewardsCfg()
+
+            # Change configurations as in rl_base/configs/reward/reward.yaml
+            default_rewards = PlatformRewardManagerCfg()
+            default_rewards.apply_yaml_overrides()
+            self.rewards = default_rewards
+
             self.terminations = MyTerminationsCfg()
 
             self.scene.robot_camera = TiledCameraCfg(
