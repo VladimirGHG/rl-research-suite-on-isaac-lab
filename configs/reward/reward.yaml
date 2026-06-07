@@ -1,0 +1,15 @@
+rewards:
+  reach_target:
+    func: "isaac.lab.envs.mdp:object_ee_distance"
+    weight: -1.0
+    params: 
+      "object_cfg_name": "target_cube"
+      "ee_cfg_name": "franka_effector"
+
+  action_penalty:
+    func: "isaac.lab.envs.mdp:action_rate_l2"
+    weight: -0.01
+
+  success_bonus:
+    func: "isaac.lab.envs.mdp:object_goal_coincidence"
+    weight: 10.0

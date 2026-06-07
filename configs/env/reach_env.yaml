@@ -1,0 +1,3 @@
+scene_class_path: "envs.scene_cfg:ReachSceneCfg"
+num_envs: 256
+env_spacing: 2.5

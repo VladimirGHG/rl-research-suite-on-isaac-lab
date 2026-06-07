@@ -84,3 +84,57 @@ class FrankaManipulationSceneCfg(InteractiveSceneCfg):
             convention="ros",           
         ),
     )
+
+@configclass
+class ReachSceneCfg(FrankaManipulationSceneCfg):
+    """Reach Task: Object is a floating ghost target with no collisions."""
+    
+    def __post_init__(self):
+        super().__post_init__()
+        # Disable physical collisions so the robot hand can pass straight through the target marker.
+        if hasattr(self.object.spawn, "collision_props"):
+            self.object.spawn.collision_props = None
+
+@configclass
+class PushCubeSceneCfg(InteractiveSceneCfg):
+    """PushCube Task: Introduces a physical table and an interactable, colliding cube."""
+    
+    # Bring in the exact environment foundational properties from your base template.
+    ground = FrankaManipulationSceneCfg.ground
+    dome_light = FrankaManipulationSceneCfg.dome_light
+    robot = FrankaManipulationSceneCfg.robot
+    franka_wrist_camera = FrankaManipulationSceneCfg.franka_wrist_camera
+
+    # Add a physical Table primitive for the cube to rest on.
+    table = AssetBaseCfg(
+        prim_path="{ENV_REGEX_NS}/Table",
+        spawn=sim_utils.CubeCfg(
+            scale=(0.5, 0.8, 0.4),
+            physics_material=sim_utils.RigidBodyMaterialCfg(static_friction=0.5, dynamic_friction=0.5),
+            collision_props=sim_utils.CollisionPropertiesCfg(),
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.3, 0.3, 0.3)),
+        ),
+        init_state=AssetBaseCfg.InitialStateCfg(
+            pos=(0.5, 0.0, 0.2), # Positioned directly in front of the robot base.
+        ),
+    )
+
+    # Add the physical interactable Cube.
+    object = AssetBaseCfg(
+        prim_path="{ENV_REGEX_NS}/Object",
+        spawn=sim_utils.CuboidCfg(
+            size=(0.05, 0.05, 0.05),
+            physics_material=sim_utils.RigidBodyMaterialCfg(static_friction=0.4, dynamic_friction=0.4),
+            collision_props=sim_utils.CollisionPropertiesCfg(), # Enables physical pushing contact.
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                mass=0.1,
+                max_depenetration_velocity=10.0,
+                disable_gravity=False, # Must fall and land on the table surface.
+            ),
+            mass_props=sim_utils.MassPropertiesCfg(mass=0.1),
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.1, 0.8, 0.1)),
+        ),
+        init_state=AssetBaseCfg.InitialStateCfg(
+            pos=(0.5, 0.0, 0.425), # Positioned cleanly on top of the 0.40m high table surface.
+        ),
+    )
