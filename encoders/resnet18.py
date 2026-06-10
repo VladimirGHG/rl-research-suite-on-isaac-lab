@@ -1,61 +1,108 @@
+"""
+Frozen ResNet18 encoder.
+
+Spec requirements (§7 — Things you will get wrong):
+  ✓ requires_grad=False on ALL parameters
+  ✓ .eval() mode permanently (BatchNorm running stats must NOT drift)
+  ✓ torch.no_grad() in forward pass
+  ✓ ImageNet mean/std normalization applied internally
+  ✓ get_platform_encoder() returns singleton — loads to GPU only once
+
+Input format:
+  TiledCamera produces (B, H, W, 3) uint8.
+  env._get_synthetic_pixels() converts to (B, 3, H, W) float [0,1].
+  This encoder receives (B, 3, H, W) float [0,1] and normalizes internally.
+
+FIX from previous version:
+  - Removed SB3 BaseFeaturesExtractor inheritance (was causing constructor crash)
+  - Added ImageNet normalization (was missing — ResNet18 features were wrong)
+  - Fixed get_platform_encoder() (was crashing because constructor needed observation_space arg)
+  - SB3 wrapper kept separately as FrozenResNet18SB3 for the smoke test only
+"""
+
 import torch
-from torch import nn
+import torch.nn as nn
 from torchvision import models
-import gym
-from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
-class FrozenResNet18(BaseFeaturesExtractor):
+
+class FrozenResNet18(nn.Module):
     """
-    A ResNet18 neural network wrapper, used for converting multi-hundred-thousand-element matrices to 512d vectors.
-    It is a Frozen network since its weights are locked and cannot be changed to preserve the pre-trained network's stability.
+    Standalone frozen ResNet18 feature extractor.
+    Input:  (B, 3, H, W) float32 in [0, 1]
+    Output: (B, 512) feature vectors
+
+    Used by PPOTrainer, SACTrainer, TD3Trainer directly.
+    NOT SB3-coupled.
     """
-    def __init__(self, observation_space: gym.spaces.Box, features_dim:int = 512):
-        """
-        FrozenResNet18 initialization with default ImageNet weights, 
-        and only 9 children layers, excluding last classification layer.
-        The network is in the Evaluation mode so that no weight changes happen.
-        """
-        super().__init__(observation_space, features_dim)
 
-        # Creating the base resnet18 agent using the default ImageNet weights.
-        base_resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+    def __init__(self):
+        super().__init__()
+        base = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+        self.feature_extractor = nn.Sequential(*list(base.children())[:-1])
 
-        # Remove the last child layer, destined to classify the object, since we do not need it.
-        self.feature_extractor = nn.Sequential(*list(base_resnet.children())[:-1])
-
-        # Freeze the parameters of the network.
+        # Freeze ALL parameters
         for param in self.feature_extractor.parameters():
             param.requires_grad = False
 
-        # Explicitly set the agent to evaluation mode.
+        # CRITICAL: eval mode prevents BatchNorm running stats from drifting
         self.feature_extractor.eval()
+
+        # ImageNet normalization constants
+        # ResNet18 was trained with these — applying them is non-optional
+        self.register_buffer("mean", torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1))
+        self.register_buffer("std",  torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        The encoder's forward pass, which takes in a batch of images and outputs a batch of 512d vectors.
-
         Args:
-            x: Raw image data to be processed.
-        
+            x: (B, 3, H, W) float32 in [0, 1]
         Returns:
-            torch.Tensor: A batch of 512d vectors representing the features of the input images.
+            (B, 512) feature vectors
         """
-        with torch.no_grad(): # Make sure no mathematical history is saved.
-            features = self.feature_extractor(x) # Feeding the raw x image to ResNet's 9 children layers.
-            return torch.flatten(features ,start_dim=1) # Flatten multidimensional array to a matrix (N_Env, 512, 1, 1) -> (N_Env, 512).
-        
-_GLOBAL_ENCODER = None # A flag to identify if the agent has already been laoded to a GPU memory.
+        with torch.no_grad():
+            x = (x - self.mean) / self.std           # ImageNet normalization
+            features = self.feature_extractor(x)     # (B, 512, 1, 1)
+            return torch.flatten(features, start_dim=1)  # (B, 512)
+
+    def train(self, mode: bool = True):
+        """Override — encoder is ALWAYS in eval mode, never training mode."""
+        return super().train(False)
+
+
+# ── SB3 compatibility wrapper ─────────────────────────────────────────────────
+# Only used for the SB3 PPO smoke test in env.py __main__
+# Custom trainers (PPO/SAC/TD3) use FrozenResNet18 above directly
+try:
+    import gymnasium as gym
+    from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
+
+    class FrozenResNet18SB3(BaseFeaturesExtractor):
+        """
+        SB3-compatible wrapper. Only for the smoke test.
+        Requires observation_space as first arg (SB3 convention).
+        """
+        def __init__(self, observation_space: gym.spaces.Box, features_dim: int = 512):
+            super().__init__(observation_space, features_dim)
+            self._encoder = FrozenResNet18()
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            return self._encoder(x)
+
+except ImportError:
+    FrozenResNet18SB3 = None
+
+
+# ── Global singleton ──────────────────────────────────────────────────────────
+_GLOBAL_ENCODER = None
+
 
 def get_platform_encoder(device: str) -> FrozenResNet18:
     """
-    A getter function for accessing and setting the encoder.
+    Returns the global singleton FrozenResNet18.
+    Loads to device only once — reused on all subsequent calls.
 
-    Args:
-        device: The GPU to which the network will be linked to.
-
-    Returns:
-        FrozenResNet18: The encoder network, which is either loaded to the GPU for the first time, 
-        or already exists in the GPU memory and is returned for use.
+    FIX: previous version crashed because FrozenResNet18 required observation_space
+    (it inherited from SB3's BaseFeaturesExtractor). Now it is a plain nn.Module.
     """
     global _GLOBAL_ENCODER
     if _GLOBAL_ENCODER is None:
