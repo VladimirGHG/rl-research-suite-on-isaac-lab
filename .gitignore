@@ -3,3 +3,6 @@ logs/
 outputs/
 ppo_cartpole_pixels.zip
 encoders/__pycache__
+__pycache__/
+wandb/
+outputs/
