@@ -1,0 +1,27 @@
+# configs/algo/sac.yaml
+# SAC hyperparameters — matches SACTrainer.config field names exactly
+
+name: sac
+
+# Core SAC hyperparameters (from CleanRL defaults)
+gamma: 0.99               # Discount factor
+tau: 0.005                # Polyak averaging coefficient for target networks
+batch_size: 256           # Samples drawn from replay buffer per update
+learning_starts: 5000     # Random exploration steps before learning begins
+buffer_size: 1000000      # Replay buffer capacity (stores 512-d encoded obs)
+
+# Learning rates
+policy_lr: 3.0e-4         # Actor network learning rate
+q_lr: 1.0e-3              # Q-network learning rate (higher than actor is standard)
+
+# Update frequencies
+policy_frequency: 2       # Update actor every N steps (delayed update from TD3)
+target_network_frequency: 1  # Polyak update target nets every N steps
+
+# Entropy tuning
+alpha: 0.2                # Initial entropy coefficient (overridden if autotune=True)
+autotune: true            # Automatically tune alpha to maintain target entropy
+
+# Training schedule
+total_timesteps: 1000000
+checkpoint_interval: 50000
