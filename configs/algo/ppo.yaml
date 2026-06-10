@@ -1,10 +1,13 @@
 # configs/algo/ppo.yaml
 name: "ppo"
+
+# Baseline network hyperparameters
 learning_rate: 0.0003
 num_envs: 128
 num_steps: 2048
 update_epochs: 10
 mini_batch_size: 64
+
 gamma: 0.99
 gae_lambda: 0.95
 clip_coef: 0.2
