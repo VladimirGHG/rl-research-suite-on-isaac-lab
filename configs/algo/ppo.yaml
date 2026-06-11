@@ -1,16 +1,23 @@
 # configs/algo/ppo.yaml
-name: "ppo"
+# PPO hyperparameters — matches PPOTrainer algo_cfg field names exactly
 
-# Baseline network hyperparameters
-learning_rate: 0.0003
-num_envs: 128
-num_steps: 2048
-update_epochs: 10
-mini_batch_size: 64
+name: ppo
 
-gamma: 0.99
-gae_lambda: 0.95
-clip_coef: 0.2
-ent_coef: 0.0
-vf_coef: 0.5
-max_grad_norm: 0.5
+# Core PPO hyperparameters
+num_steps: 128            # How many steps to run in each environment before updating
+lr: 3.0e-4                # Learning rate for both Actor and Critic
+gamma: 0.99               # Discount factor (how much the robot cares about future rewards)
+gae_lambda: 0.95          # Generalized Advantage Estimation smoothing parameter
+
+# The PPO "Safety Leash" Math
+update_epochs: 4          # How many times to loop over the collected batch of data
+clip_coef: 0.2            # The Safety Leash: Max 20% change to the policy per update
+max_grad_norm: 0.5        # Global gradient clipping (prevents exploding gradients)
+
+# Loss Function Coefficients
+ent_coef: 0.01            # Entropy bonus: Higher number forces the robot to explore more
+vf_coef: 0.5              # Value function coefficient: How much to prioritize Critic accuracy
+
+# Training schedule
+total_timesteps: 1000000
+checkpoint_interval: 50000
