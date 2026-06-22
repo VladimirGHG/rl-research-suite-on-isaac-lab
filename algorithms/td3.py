@@ -1,15 +1,3 @@
-from algorithms.base import Trainer
-
-class TD3Trainer(Trainer):
-    def __init__(self, env, algo_cfg, wandb_run=None, resume_path=None):
-        super().__init__(env, algo_cfg, wandb_run, resume_path)
-    def collect_rollout(self): raise NotImplementedError
-    def update(self): raise NotImplementedError
-    def evaluate(self, n): raise NotImplementedError
-    def save(self, path): raise NotImplementedError
-    def load(self, path): raise NotImplementedError
-    def train(self): raise NotImplementedError("TD3 not yet implemented")
-
 import copy
 import os
 
@@ -20,82 +8,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from algorithms.base import Trainer
-from policies.base import BasePolicy
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-# The Actor and Critic classes define the neural network architectures for the policy and value function approximators. 
-# The Actor network takes in features extracted from observations and outputs actions, 
-# while the Critic network evaluates the quality of state-action pairs. 
-# The TD3Policy class encapsulates both networks and provides methods for action selection and prediction. 
-class Actor(nn.Module):
-    def __init__(self, feature_dim: int, action_dim: int, max_action: float):
-        super(Actor, self).__init__()
-        self.l1 = nn.Linear(feature_dim, 256)
-        self.l2 = nn.Linear(256, 256)
-        self.l3 = nn.Linear(256, action_dim)
-        self.max_action = max_action
-
-    def forward(self, features: torch.Tensor) -> torch.Tensor:
-        a = F.relu(self.l1(features))
-        a = F.relu(self.l2(a))
-        return self.max_action * torch.tanh(self.l3(a))
-
-
-class Critic(nn.Module):
-    def __init__(self, feature_dim: int, action_dim: int):
-        super(Critic, self).__init__()
-        self.l1 = nn.Linear(feature_dim + action_dim, 256)
-        self.l2 = nn.Linear(256, 256)
-        self.l3 = nn.Linear(256, 1)
-
-        self.l4 = nn.Linear(feature_dim + action_dim, 256)
-        self.l5 = nn.Linear(256, 256)
-        self.l6 = nn.Linear(256, 1)
-
-    def forward(self, features: torch.Tensor, action: torch.Tensor):
-        fa = torch.cat([features, action], dim=1)
-        q1 = F.relu(self.l1(fa))
-        q1 = F.relu(self.l2(q1))
-        q1 = self.l3(q1)
-
-        q2 = F.relu(self.l4(fa))
-        q2 = F.relu(self.l5(q2))
-        q2 = self.l6(q2)
-        return q1, q2
-
-    def Q1(self, features: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
-        fa = torch.cat([features, action], dim=1)
-        q1 = F.relu(self.l1(fa))
-        q1 = F.relu(self.l2(q1))
-        return self.l3(q1)
-
-
-class TD3Policy(BasePolicy):
-    def __init__(self, observation_space: gym.spaces.Box, action_space: gym.spaces.Box, encoder, max_action: float, feature_dim: int = 512):
-        super().__init__(observation_space, action_space)
-        self.encoder = encoder
-        self.max_action = max_action
-        self.actor = Actor(feature_dim, action_space.shape[0], max_action).to(device)
-        self.critic = Critic(feature_dim, action_space.shape[0]).to(device)
-
-    # The get_action method processes pixel observations through the encoder to extract features, 
-    # then passes those features through the actor network to produce an action. 
-    # It ensures that the input pixel state has the correct batch dimension and operates in a no-gradient context 
-    # since this is used for action selection during interaction with the environment.
-    def get_action(self, pixel_state: torch.Tensor) -> torch.Tensor:
-        """Processes pixel observations through the encoder to extract features, then passes those features through the actor network to produce an action."""
-        if len(pixel_state.shape) == 3:
-            pixel_state = pixel_state.unsqueeze(0)
-        with torch.no_grad():
-            features = self.encoder(pixel_state)
-            action = self.actor(features)
-        return action
-
-    def predict(self, observations: torch.Tensor, deterministic: bool = False):
-        """The predict method is a standard interface for policies, which takes in observations and a deterministic flag."""
-        action = self.get_action(observations)
-        return action, None
+from policies.custom.td3_policy import TD3Policy
+device = torch.device("cuda") if torch.cuda.is_available() else "cpu"
 
 # The PixelReplayBuffer class manages the storage and sampling of experiences for training.
 class PixelReplayBuffer(object):
@@ -138,22 +52,22 @@ class PixelReplayBuffer(object):
 
 # The main policy class, based on processing pixel observations through an encoder and then using the actor network to select actions.
 class Td3Trainer(Trainer):
-    def __init__(self, env, policy: TD3Policy, config):
-        super().__init__(env=env, policy=policy, config=config)
-        
+    def __init__(self, env, policy: TD3Policy, algo_config):
+        super().__init__(env=env, algo_cfg=algo_config, wandb_run=None, resume_path=None)
+
         self.policy: TD3Policy = policy
-        
-        self.discount = config.get("discount", 0.99)
-        self.tau = config.get("tau", 0.005)
-        self.policy_noise = config.get("policy_noise", 0.2)
-        self.noise_clip = config.get("noise_clip", 0.5)
-        self.policy_freq = config.get("policy_freq", 2)
-        self.batch_size = config.get("batch_size", 256)
-        self.expl_noise = config.get("expl_noise", 0.1)
-        self.learning_starts = config.get("learning_starts", 5000)
-        self.total_timesteps = config.get("total_timesteps", 1000000)
-        self.checkpoint_interval = config.get("checkpoint_interval", 50000)
-        
+
+        self.discount = algo_config.get("discount", 0.99)
+        self.tau = algo_config.get("tau", 0.005)
+        self.policy_noise = algo_config.get("policy_noise", 0.2)
+        self.noise_clip = algo_config.get("noise_clip", 0.5)
+        self.policy_freq = algo_config.get("policy_freq", 2)
+        self.batch_size = algo_config.get("batch_size", 256)
+        self.expl_noise = algo_config.get("expl_noise", 0.1)
+        self.learning_starts = algo_config.get("learning_starts", 5000)
+        self.total_timesteps = algo_config.get("total_timesteps", 1000000)
+        self.checkpoint_interval = algo_config.get("checkpoint_interval", 50000)
+
         self.action_dim = env.action_space.shape[0]
         self.num_envs = env.cfg.num_envs
         self.total_it = 0
@@ -162,12 +76,12 @@ class Td3Trainer(Trainer):
         self.actor_target = copy.deepcopy(self.policy.actor)
         self.critic_target = copy.deepcopy(self.policy.critic)
 
-        self.actor_optimizer = torch.optim.Adam(self.policy.actor.parameters(), lr=config.get("lr_actor", 3e-4))
-        self.critic_optimizer = torch.optim.Adam(self.policy.critic.parameters(), lr=config.get("lr_critic", 3e-4))
+        self.actor_optimizer = torch.optim.Adam(self.policy.actor.parameters(), lr=algo_config.get("lr_actor", 3e-4))
+        self.critic_optimizer = torch.optim.Adam(self.policy.critic.parameters(), lr=algo_config.get("lr_critic", 3e-4))
 
         self.replay_buffer = PixelReplayBuffer(
             num_envs=self.num_envs,
-            max_size=config.get("buffer_capacity", 50000),
+            max_size=algo_config.get("buffer_capacity", 50000),
             action_dim=self.action_dim,
             device=device
         )
