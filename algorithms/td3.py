@@ -200,3 +200,14 @@ class Td3Trainer(Trainer):
         self.critic_optimizer.load_state_dict(checkpoint["critic_opt"])
         self.total_it = checkpoint["total_it"]
         self.total_steps_collected = checkpoint.get("total_steps_collected", 0)
+
+    def train(self) -> None:
+        while self.total_steps_collected < self.total_timesteps:
+            rollout_metrics = self.collect_rollout()
+            update_metrics = self.update()
+
+            if self.total_steps_collected % self.checkpoint_interval < self.num_envs:
+                checkpoint_path = f"checkpoints/td3_{self.total_steps_collected}.pt"
+                self.save(checkpoint_path)
+                eval_metrics = self.evaluate(num_of_episodes=5)
+                print(f"[Step {self.total_steps_collected}] {rollout_metrics | update_metrics | eval_metrics}")
