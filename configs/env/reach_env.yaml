@@ -1,4 +1,4 @@
 scene_class_path: "envs.scene_cfg:ReachSceneCfg"
 task_name: franka_reach
-num_envs: 128
+num_envs: 256
 env_spacing: 2.5

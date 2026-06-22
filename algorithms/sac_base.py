@@ -180,11 +180,9 @@ class SACTrainer(Trainer):
 
         self.current_obs = next_obs
 
-        prev_step = self.global_step - self.num_envs
-        if self.start_time and prev_step // 1000 != self.global_step // 1000:
+        if self.start_time and self.global_step % 1000 == 0:
             sps = int(self.global_step / (time.time() - self.start_time))
             print(f"[SAC] step={self.global_step} | buffer={len(self.rb)} | SPS={sps}")
-            print(f"[SAC] reward min={rewards.min().item():.5f} mean={rewards.mean().item():.5f} max={rewards.max().item():.5f}")
 
         return {"global_step": self.global_step}
 
@@ -254,35 +252,23 @@ class SACTrainer(Trainer):
         cfg = self.config
         total_timesteps = int(cfg.total_timesteps)
         ckpt_every = int(cfg.checkpoint_interval)
-        eval_every = int(getattr(cfg, "eval_interval", 50000))
-        eval_episodes = int(getattr(cfg, "eval_episodes", 5))
         self.start_time = time.time()
 
         print(f"[SAC] Starting | total_steps={total_timesteps} | "
               f"num_envs={self.num_envs} | learning_starts={cfg.learning_starts}")
 
         while self.global_step < total_timesteps:
-            prev_step = self.global_step
             self.collect_rollout()
 
             if self.global_step > int(cfg.learning_starts):
                 metrics = self.update()
 
-                if self.wandb_run is not None and prev_step // 100 != self.global_step // 100:
+                if self.global_step % 100 == 0 and self.wandb_run is not None:
                     metrics["charts/global_step"] = self.global_step
                     metrics["charts/SPS"] = int(self.global_step / (time.time() - self.start_time))
                     self.wandb_run.log(metrics, step=self.global_step)
 
-            if prev_step // eval_every != self.global_step // eval_every:
-                eval_metrics = self.evaluate(eval_episodes)
-                print(f"[SAC] eval @ step={self.global_step} | "
-                      f"mean_return={eval_metrics['eval/mean_return']:.3f} | "
-                      f"std_return={eval_metrics['eval/std_return']:.3f}")
-                if self.wandb_run is not None:
-                    self.wandb_run.log(eval_metrics, step=self.global_step)
-                self.current_obs = None
-
-            if prev_step // ckpt_every != self.global_step // ckpt_every:
+            if self.global_step % ckpt_every == 0:
                 self.save(f"checkpoints/sac_step_{self.global_step}.pt")
 
         print(f"[SAC] Training complete — {self.global_step} steps.")

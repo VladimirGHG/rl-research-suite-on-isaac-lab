@@ -14,6 +14,7 @@ try:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
     parser = argparse.ArgumentParser(description="Custom Isaac Lab script.")
+    parser.add_argument("--num_envs", type=int, default=128, help="Number of environments")
     AppLauncher.add_app_launcher_args(parser)
 
     args_cli, remaining = parser.parse_known_args()
@@ -50,8 +51,6 @@ try:
     @configclass
     class MyEnvCfg(ManagerBasedRLEnvCfg):
         scene_class_path: str = "envs.scene_cfg:FrankaManipulationSceneCfg"
-        num_envs: int = 128
-        env_spacing: float = 2.5
 
         def __post_init__(self):
             self.decimation = 2
@@ -59,9 +58,7 @@ try:
 
             scene_target_path = getattr(self, "scene_class_path", "envs.scene_cfg:FrankaManipulationSceneCfg")
             ResolvedSceneClass = load_scene_cfg_from_string(scene_target_path)
-            self.scene = ResolvedSceneClass(
-                num_envs=self.num_envs, env_spacing=self.env_spacing, replicate_physics=True
-            )
+            self.scene = ResolvedSceneClass(num_envs=128, env_spacing=2.5, replicate_physics=True)
 
             self.observations = PlatformObservationsCfg()
             self.actions = MyActionsCfg()

@@ -44,9 +44,14 @@ def main(cfg: DictConfig):
 
     print(f"SETTING THE ENVIRONMENT: {task_name}")
 
-    env_overrides = {k: v for k, v in cfg.env.items() if k in ["scene_class_path", "num_envs", "env_spacing"]}
-    env_cfg = MyEnvCfg(**env_overrides)
-
+    env_cfg = MyEnvCfg()
+    
+    # Extract keys and map directly over class variables (scene_class_path, num_envs, env_spacing).
+    for key, val in cfg.env.items():
+        if hasattr(env_cfg, key) or key in ["scene_class_path", "num_envs", "env_spacing"]:
+            setattr(env_cfg, key, val)
+            
+    # Safely forward the completely hydrated dataclass object structure to your platform
     env = IsaacLabPlatformEnv(cfg=env_cfg)
 
     # Dynamically select the algorithm trainer class based on configuration parameters
