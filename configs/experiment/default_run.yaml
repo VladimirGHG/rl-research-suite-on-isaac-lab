@@ -1,14 +1,10 @@
-defaults:
-  - override /env: franka_panda_default
-  - override /algo: ppo
-  - override /reward: dense_manipulation
+# configs/experiment/default_run.yaml
+# No defaults overrides here — env/reward/algo are set in config.yaml
+# and overridden from the command line (e.g. algo=sac env=reach_env)
 
 name: "franka_panda_baseline_smoke_test"
-notes: "Standard baseline verification run utilizing proprioception and frozen ResNet18 visual embeddings."
-
+notes: "Standard baseline verification run using proprioception and frozen ResNet18 visual embeddings."
 eval_steps: 2500
-eval_repo: "some/franka_panda_baselines" 
+eval_repo: "some/franka_panda_baselines"
 eval_file: "some_policy.zip"
-
 total_timesteps: 1000000
-checkpoint_interval: 50000

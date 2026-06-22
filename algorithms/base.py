@@ -1,71 +1,49 @@
 from abc import ABC, abstractmethod
-from rl_base.policies.base import BasePolicy
+from policies.base import BasePolicy   # FIX: was 'from rl_base.policies.base import BasePolicy'
+
 
 class Trainer(ABC):
-    """Abstract base class defining the uiversal minimal training algorithm interface."""
+    """Abstract base class defining the universal minimal training algorithm interface."""
 
-    def __init__(self, env, policy: BasePolicy, config):
+    def __init__(self, env, algo_cfg, wandb_run=None, resume_path=None):
         """
-        Initialized the trainer.
-        
         Args:
-            env: An active instance of Isaac Lab environment
-            policy: A policy determining our agent's action based on the observations.
-            config: A Hydra-based nested configuration tree for the algorithm.
+            env:         Active IsaacLabPlatformEnv instance.
+            algo_cfg:    Hydra config node for the algorithm (cfg.algo).
+            wandb_run:   Optional active W&B run for metric logging.
+            resume_path: Optional path to checkpoint to resume from.
         """
-        
-        self.env = env
-        self.policy = policy
-        self.config = config
+        self.env         = env
+        self.config      = algo_cfg
+        self.wandb_run   = wandb_run
+        self.resume_path = resume_path
 
     @abstractmethod
     def collect_rollout(self) -> dict:
-        """
-        Collects new data from the environment to feed the agent.
-        
-        Returns:
-            dict: Metrics obtained while collecting data.
-        """
+        """Collect a batch of experience from the environment."""
         raise NotImplementedError
-    
+
     @abstractmethod
     def update(self) -> dict:
-        """
-        Updates the policy network parameters.
-        
-        Returns:
-            dict: Training metrics from the update step.
-        """
+        """Update policy/value network parameters from collected data."""
         raise NotImplementedError
-    
+
     @abstractmethod
     def evaluate(self, num_of_episodes: int) -> dict:
-        """Runs isolated validation checkpoints during the training.
-        
-        Args:
-            num_of_episodes: Number of episodes to run evaluation on.
-        
-        Returns:
-            dict: Metrics obtained from the evaluation.
-        """
+        """Run deterministic evaluation episodes."""
         raise NotImplementedError
-    
+
     @abstractmethod
     def save(self, path: str):
-        """
-        Serializes the current policy, algorithm's state and progress tracker
-        into a unified Pytorch binary file.
-        
-        Args:
-            path: The path for the save file.
-        """
+        """Serialize policy weights and optimizer state to disk."""
         raise NotImplementedError
-    
+
     @abstractmethod
     def load(self, path: str):
-        """Loads an algorithm with all it's properties.
-        
-        Args:
-            path: The path to the saved binary file.
-        """
+        """Restore policy weights and optimizer state from disk."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def train(self):                          # FIX: was missing — train.py calls trainer.train()
+        """Full training loop: collect + update until total_timesteps."""
         raise NotImplementedError
