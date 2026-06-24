@@ -5,22 +5,25 @@ import hydra
 import wandb
 from omegaconf import DictConfig, OmegaConf
 from envs.env import IsaacLabPlatformEnv, MyEnvCfg
+from policies.custom.td3_policy import TD3Policy
+from encoders.resnet18 import FrozenResNet18
 
+# in main(), after env is created:
 try:
     from algorithms.ppo import PPOTrainer
     from algorithms.sac import SACTrainer
-    from algorithms.td3 import TD3Trainer
+    from algorithms.td3 import Td3Trainer
 except ImportError:
     class PPOTrainer:
         def __init__(self, env, algo_cfg, wandb_run, resume_path=None): self.resume_path = resume_path
         def train(self): print("MOCK TRAINING COMPLETE")
         def save(self, path): print(f"MOCK SAVE to {path}")
-    SACTrainer = TD3Trainer = PPOTrainer
+    SACTrainer = Td3Trainer = PPOTrainer
 
 ALGO_REGISTRY = {
     "ppo": PPOTrainer,
     "sac": SACTrainer,
-    "td3": TD3Trainer
+    "td3": Td3Trainer
 }
 
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
@@ -44,14 +47,8 @@ def main(cfg: DictConfig):
 
     print(f"SETTING THE ENVIRONMENT: {task_name}")
 
-    env_cfg = MyEnvCfg()
-    
-    # Extract keys and map directly over class variables (scene_class_path, num_envs, env_spacing).
-    for key, val in cfg.env.items():
-        if hasattr(env_cfg, key) or key in ["scene_class_path", "num_envs", "env_spacing"]:
-            setattr(env_cfg, key, val)
-            
-    # Safely forward the completely hydrated dataclass object structure to your platform
+    env_overrides = {k: v for k, v in cfg.env.items() if k in ["scene_class_path", "num_envs", "env_spacing"]}
+    env_cfg = MyEnvCfg(**env_overrides)
     env = IsaacLabPlatformEnv(cfg=env_cfg)
 
     # Dynamically select the algorithm trainer class based on configuration parameters
@@ -76,13 +73,19 @@ def main(cfg: DictConfig):
         resume_checkpoint_path = None
 
     print(f"Instantiating custom {algo_name} engine pipeline.")
+    encoder = FrozenResNet18().to(env.device)
 
-    trainer = ALGO_REGISTRY[algo_key](
-        env=env, 
-        algo_cfg=cfg.algo, 
-        wandb_run=run, 
-        resume_path=resume_checkpoint_path
+    trainer_kwargs = dict(
+        env=env,
+        algo_cfg=cfg.algo,
+        wandb_run=run,
+        resume_path=resume_checkpoint_path,
     )
+
+    if algo_key == "td3":
+        trainer_kwargs["policy"] = TD3Policy(env.observation_space, env.action_space, encoder=encoder, max_action=float(env.action_space.high[0]))
+
+    trainer = ALGO_REGISTRY[algo_key](**trainer_kwargs)
 
     try:
         trainer.train()
@@ -98,6 +101,7 @@ def main(cfg: DictConfig):
     finally:
         print("\nTERMINATING SESSION CLEANLY")
         env.close()
+        
         wandb.finish()
 
 if __name__ == "__main__":

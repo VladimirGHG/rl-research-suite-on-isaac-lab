@@ -44,6 +44,6 @@ class Trainer(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def train(self):                          # FIX: was missing — train.py calls trainer.train()
+    def train(self):
         """Full training loop: collect + update until total_timesteps."""
         raise NotImplementedError

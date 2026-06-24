@@ -1,42 +1,34 @@
-"""
-Termination manager configuration.
-
-VALIDATED against Isaac Lab official docs (main, June 2026):
-- Plain @configclass — matches official cartpole TerminationsCfg pattern
-- Functions as callables (func=mdp.time_out), not strings
-- time_out=True marks episode limit as truncation (not termination)
-  so SAC/PPO bootstrap value correctly for truncated episodes
-"""
-
 import torch
 import isaaclab.envs.mdp as mdp
 from isaaclab.managers import TerminationTermCfg
 from isaaclab.utils import configclass
 
+from envs.managers.common import get_ee_position
 
-# ── Custom termination term ────────────────────────────────────────────────────
+
 def task_completed(env, object_cfg_name: str = "object",
                    threshold: float = 0.02) -> torch.Tensor:
     """
     End episode early when task is achieved.
+    Same distance/threshold logic as reward_manager.task_success, so the episode
+    ends in the exact step the success bonus fires — not before, not after.
     Returns (num_envs,) bool tensor — fully vectorised.
-    TODO: replace placeholder with real success check in Week 3.
     """
-    return torch.zeros(env.num_envs, dtype=torch.bool, device=env.device)
+    object_pos = env.scene[object_cfg_name].data.root_pos_w
+    ee_pos = get_ee_position(env, ee_cfg_name="robot")
+    distance = torch.norm(object_pos - ee_pos, dim=-1)
+    return distance < threshold
 
 
-# ── Termination config ─────────────────────────────────────────────────────────
 @configclass
 class PlatformTerminationsCfg:
     """Episode reset conditions."""
 
-    # Episode time limit — truncation, not termination
     timeout: TerminationTermCfg = TerminationTermCfg(
         func=mdp.time_out,
         time_out=True,
     )
 
-    # Early success termination
     task_success: TerminationTermCfg = TerminationTermCfg(
         func=task_completed,
         params={"object_cfg_name": "object", "threshold": 0.02},

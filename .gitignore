@@ -6,3 +6,4 @@ encoders/__pycache__
 __pycache__/
 wandb/
 outputs/
+checkpoints/

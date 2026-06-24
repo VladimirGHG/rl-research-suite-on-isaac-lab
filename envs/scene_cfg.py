@@ -69,7 +69,6 @@ class FrankaManipulationSceneCfg(InteractiveSceneCfg):
         prim_path="{ENV_REGEX_NS}/Robot"
     )
 
-    # Target object — 4 cm red cube (physics-interactive)
     object: RigidObjectCfg = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/Object",
         spawn=sim_utils.CuboidCfg(
@@ -82,6 +81,9 @@ class FrankaManipulationSceneCfg(InteractiveSceneCfg):
             ),
             mass_props=sim_utils.MassPropertiesCfg(mass=0.1),
             collision_props=sim_utils.CollisionPropertiesCfg(),
+            physics_material=sim_utils.RigidBodyMaterialCfg( # Physics material for friction and restitution.
+                static_friction=0.5, dynamic_friction=0.4, restitution=0.0, 
+                friction_combine_mode="multiply", restitution_combine_mode="average",)
         ),
         init_state=RigidObjectCfg.InitialStateCfg(
             pos=(0.5, 0.0, 0.02),
@@ -113,12 +115,14 @@ class FrankaManipulationSceneCfg(InteractiveSceneCfg):
 
 @configclass
 class ReachSceneCfg(FrankaManipulationSceneCfg):
-    """Reach task: object is a visual-only target, no physics collisions."""
+    """Reach task: object is a fixed, visual-only target — kinematic, no gravity, no collisions."""
 
     def __post_init__(self):
         super().__post_init__()
         if hasattr(self.object.spawn, "collision_props"):
             self.object.spawn.collision_props = None
+        if hasattr(self.object.spawn, "rigid_props") and self.object.spawn.rigid_props is not None:
+            self.object.spawn.rigid_props.kinematic_enabled = True
 
 
 @configclass
