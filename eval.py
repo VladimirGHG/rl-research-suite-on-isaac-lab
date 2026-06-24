@@ -21,9 +21,17 @@ from policies.from_hub import SB3HubPolicyWrapper
 def _load_local_policy(checkpoint_path: str, env, algo_cfg):
     ckpt = torch.load(checkpoint_path, map_location=env.device)
     if "qf1" in ckpt:
-        trainer = SACTrainer(env, algo_cfg)
+        trainer = SACTrainer(env, algo_cfg, wandb_run=None)
+    elif "actor_state" in ckpt:
+        from algorithms.td3 import Td3Trainer
+        from encoders.resnet18 import FrozenResNet18
+        from policies.custom.td3_policy import TD3Policy
+        encoder = FrozenResNet18().to(env.device)
+        policy = TD3Policy(env.observation_space, env.action_space, encoder=encoder,
+                           max_action=float(env.action_space.high[0]))
+        trainer = Td3Trainer(env, policy, algo_cfg, wandb_run=None)
     elif "critic" in ckpt:
-        trainer = PPOTrainer(env, algo_cfg)
+        trainer = PPOTrainer(env, algo_cfg, wandb_run=None)
     else:
         raise ValueError(f"Unrecognized checkpoint format: {list(ckpt.keys())}")
     trainer.load(checkpoint_path)
@@ -66,7 +74,7 @@ def main(cfg: DictConfig):
             action, _ = policy.predict(obs, deterministic=True)
             obs_dict, reward, terminated, truncated, _ = env.step(action)
             obs = obs_dict["policy"]
-            ep_reward += reward.mean().item()
+            ep_reward += reward.sum().item()
             ep_length += 1
 
             if capture_video:

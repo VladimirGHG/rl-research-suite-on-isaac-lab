@@ -1,0 +1,24 @@
+name: "ppo"
+
+# --- Input to __init__ ---
+num_steps: 2048
+learning_rate: 3.0e-4
+
+# --- Input to update() ---
+num_minibatches: 32
+update_epochs: 10
+gamma: 0.99
+gae_lambda: 0.95
+norm_adv: True
+clip_coef: 0.2
+clip_vloss: True
+ent_coef: 0.05
+vf_coef: 0.5
+max_grad_norm: 0.5
+
+# --- Input to train() ---
+total_timesteps: 1000000
+checkpoint_interval: 50000
+
+eval_interval: 100000
+eval_episodes: 5

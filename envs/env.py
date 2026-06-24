@@ -29,14 +29,15 @@ try:
     from envs.managers.observation_manager import PlatformObservationsCfg
     from envs.managers.reward_manager import PlatformRewardsCfg
     from envs.managers.termination_manager import PlatformTerminationsCfg
-
+    from isaaclab.envs.mdp.actions import JointPositionActionCfg
     @configclass
     class MyActionsCfg:
-        joint_effort: JointEffortActionCfg = JointEffortActionCfg(
-            asset_name="robot",
-            joint_names=[".*"],
-        )
-
+        joint_position: JointPositionActionCfg = JointPositionActionCfg(
+        asset_name="robot",
+        joint_names=[".*"],
+        scale=0.5,
+        use_default_offset=True,
+    )
     def load_scene_cfg_from_string(class_path: str):
         try:
             module_path, class_name = class_path.split(":")
@@ -55,7 +56,7 @@ try:
 
         def __post_init__(self):
             self.decimation = 2
-            self.episode_length_s = 10.0
+            self.episode_length_s = 15.0
 
             scene_target_path = getattr(self, "scene_class_path", "envs.scene_cfg:FrankaManipulationSceneCfg")
             ResolvedSceneClass = load_scene_cfg_from_string(scene_target_path)

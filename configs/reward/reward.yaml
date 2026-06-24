@@ -1,18 +1,18 @@
 rewards:
   reach_target:
     func: reaching_reward
-    weight: -1.0
+    weight: 1.0
     params:
       object_cfg_name: "object"
       ee_cfg_name: "robot"
 
   action_penalty:
     func: action_rate_l2
-    weight: -0.01
+    weight: -0.005
 
   success_bonus:
     func: task_success
-    weight: 10.0
+    weight: 1.0
     params:
       object_cfg_name: "object"
       threshold: 0.02

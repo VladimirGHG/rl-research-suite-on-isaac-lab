@@ -1,13 +1,14 @@
 defaults:
-  - env: reach_env              # FIX: was 'franka_panda_default' which doesn't exist
-  - reward: reward              # FIX: was 'dense_manipulation' which doesn't exist
-  - algo: sac                   # default algo — override with algo=ppo or algo=td3
+  - env: reach_env
+  - reward: reward
+  - algo: sac
   - experiment: default_run
   - _self_
 
 seed: 42
-video_dump: false
+video_dump: true
+checkpoint_path : null
 wandb:
   project: "isaaclab_franka_suite"
-  entity: "naganshul258-montanuniversit-t-leoben"          # replace with your W&B entity
+  entity: "vladimirgharagulyan-mu-leoben" # replace with your W&B entity
   mode: "online"

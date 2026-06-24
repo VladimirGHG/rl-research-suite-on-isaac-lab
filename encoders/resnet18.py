@@ -34,7 +34,8 @@ class FrozenResNet18(nn.Module):
     Used by PPOTrainer, SACTrainer, TD3Trainer directly.
     NOT SB3-coupled.
     """
-
+    feature_dim = 512
+    
     def __init__(self):
         super().__init__()
         base = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
