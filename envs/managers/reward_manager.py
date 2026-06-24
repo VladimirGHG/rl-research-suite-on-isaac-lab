@@ -13,7 +13,7 @@ NOTE: Verify exact MDP function names on the GPU workstation by checking:
 
 import os
 import torch
-from isaaclab.managers import RewardManagerCfg, RewardTermCfg   # FIX: was 'isaac.lab'
+from isaaclab.managers import RewardTermCfg   # FIX: was 'isaac.lab'
 from isaaclab.utils import configclass
 
 
@@ -41,7 +41,7 @@ def task_success(env, object_cfg_name: str = "object",
 
 # ── Reward manager config ─────────────────────────────────────────────────────
 @configclass
-class PlatformRewardManagerCfg(RewardManagerCfg):
+class PlatformRewardsCfg:
     """
     Composable reward terms loaded from YAML.
     Adding a new term = one Python function + 3 lines of YAML.

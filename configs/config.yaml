@@ -9,5 +9,5 @@ seed: 42
 video_dump: false
 wandb:
   project: "isaaclab_franka_suite"
-  entity: "entity_name"          # replace with your W&B entity
+  entity: "naganshul258-montanuniversit-t-leoben"          # replace with your W&B entity
   mode: "online"
