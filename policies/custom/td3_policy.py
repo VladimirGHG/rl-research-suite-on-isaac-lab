@@ -60,10 +60,16 @@ class Critic(nn.Module):
 
 
 class TD3Policy(BasePolicy):
-    def __init__(self, observation_space: gym.spaces.Box, action_space: gym.spaces.Box, encoder, max_action: float, feature_dim: int = 512):
+    def __init__(self, observation_space: gym.spaces.Box, action_space: gym.spaces.Box, encoder, max_action: float, feature_dim: int = None):
         super().__init__(observation_space, action_space)
         self.encoder = encoder
         self.max_action = max_action
+        
+        # Default: 512 (visual) + 9 (object_pos + ee_pos + relative_pos)
+        if feature_dim is None:
+            feature_dim = 521
+        
+        self.feature_dim = feature_dim
         self.actor = Actor(feature_dim, action_space.shape[0], max_action).to(device)
         self.critic = Critic(feature_dim, action_space.shape[0]).to(device)
 
@@ -76,8 +82,7 @@ class TD3Policy(BasePolicy):
         if len(pixel_state.shape) == 3:
             pixel_state = pixel_state.unsqueeze(0)
         with torch.no_grad():
-            features = self.encoder(pixel_state)
-            action = self.actor(features)
+            action = self.actor(pixel_state)
         return action
 
     def predict(self, observations: torch.Tensor, deterministic: bool = False):

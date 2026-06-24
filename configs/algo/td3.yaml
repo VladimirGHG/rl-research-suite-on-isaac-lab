@@ -1,22 +1,18 @@
-ame: td3
+name: td3
 
-# Core TD3 hyperparameters
 discount: 0.99 # Discount factor (gamma)
 tau: 0.005 # Polyak tracking coefficient for exponential target updates
 batch_size: 256 # Stratified mini-batch size drawn from parallel buffer
 buffer_capacity: 50000 # Maximum step allocations for the GPU PixelReplayBuffer
 
-# Learning rates
 lr_actor: 3.0e-4 # Actor network learning rate
 lr_critic: 3.0e-4 # Twin Critic networks learning rate
 
-# TD3-Specific regularization noise properties
 expl_noise: 0.1 # Standard exploratory Gaussian noise added during rollout collections
 policy_noise: 0.2 # Target action smoothing noise added during target evaluations
 noise_clip: 0.5 # Maximum bounds to clamp the policy regularization noise
 
-# Delayed execution frequencies
 policy_freq: 2 # Delay parameter updates for Actor and Target networks to every N iterations
 
 total_timesteps: 1000000
-checkpoint_interval: 50000
+checkpoint_interval: 20000
