@@ -22,11 +22,7 @@ class PixelReplayBuffer(object):
     def __init__(self, num_envs: int, max_size: int, obs_dim: int, action_dim: int, device):
         self.max_size = max_size
         self.num_envs = num_envs
-<<<<<<< HEAD
-        self.device = device # GPU, used only at sample time to move batches
-=======
         self.device = device # GPU is used only at sample time to move batches
->>>>>>> 67d5c65 (ref(Code cleanup))
         self.ptr = 0
         self.size = 0
 
@@ -110,25 +106,16 @@ class Td3Trainer(Trainer):
     def collect_rollout(self) -> dict:
         # Get raw pixels and encode them
         raw = self.env.scene["franka_wrist_camera"].data.output["rgb"]
-<<<<<<< HEAD
-        raw_pixels = raw.permute(0, 3, 1, 2).float() / 255.0 # (B, 3, H, W)
-=======
+
         raw_pixels = raw.permute(0, 3, 1, 2).float() / 255.0
->>>>>>> 67d5c65 (ref(Code cleanup))
         
         with torch.no_grad():
             visual_features = self.policy.encoder(raw_pixels)
             
-<<<<<<< HEAD
-            object_pos = self.env.scene["object"].data.root_pos_w # (B, 3)
-            ee_pos = get_ee_position(self.env, "robot") # (B, 3)
-            relative_pos = object_pos - ee_pos # (B, 3)
-=======
             # Get state features
             object_pos = self.env.scene["object"].data.root_pos_w
             ee_pos = get_ee_position(self.env, "robot")
             relative_pos = object_pos - ee_pos
->>>>>>> 67d5c65 (ref(Code cleanup))
             
             # Normalize by dividing by 2.0
             object_pos_norm = object_pos / 2.0
@@ -140,11 +127,7 @@ class Td3Trainer(Trainer):
                 object_pos_norm,
                 ee_pos_norm,
                 relative_pos_norm
-<<<<<<< HEAD
-            ], dim=-1) # (B, 521)
-=======
             ], dim=-1)
->>>>>>> 67d5c65 (ref(Code cleanup))
 
         if self.total_steps_collected < self.learning_starts:
             actions = torch.rand((self.num_envs, self.action_dim), device=self.device) * 2.0 - 1.0
