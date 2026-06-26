@@ -1,5 +1,3 @@
-# algorithms/ppo.py
-
 import os
 import time
 import numpy as np
@@ -11,10 +9,6 @@ from algorithms.base import Trainer
 from encoders.resnet18 import FrozenResNet18
 from policies.custom.ppo_policy import PPOActorNetwork, PPOCriticNetwork
 
-
-# =============================================================================
-# PPO Rollout Buffer
-# =============================================================================
 class _RolloutBuffer:
     """Temporary storage for on-policy rollouts, kept entirely on GPU."""
 
@@ -46,10 +40,6 @@ class _RolloutBuffer:
     def clear(self):
         self.ptr = 0
 
-
-# =============================================================================
-# PPO Trainer
-# =============================================================================
 class PPOTrainer(Trainer):
     """Proximal Policy Optimization (PPO) trainer for Isaac Lab."""
 
@@ -86,10 +76,6 @@ class PPOTrainer(Trainer):
         if self.resume_path and os.path.exists(self.resume_path):
             self.load(self.resume_path)
 
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
-
     def _encode(self, obs_dict) -> torch.Tensor:
         """Extract visual features; handles both dict and raw tensor obs."""
         pixels = obs_dict["policy"] if isinstance(obs_dict, dict) else obs_dict
@@ -101,9 +87,6 @@ class PPOTrainer(Trainer):
         self.current_obs = self._encode(obs_dict)
         self.next_done   = torch.zeros(self.num_envs, device=self.device)
 
-    # ------------------------------------------------------------------
-    # FIX 1: collect a *full* rollout of num_steps before returning
-    # ------------------------------------------------------------------
     def collect_rollout(self) -> dict:
         """
         Collect exactly `num_steps` environment steps across all envs.
@@ -113,7 +96,7 @@ class PPOTrainer(Trainer):
         if self.current_obs is None:
             self._init_rollout()
 
-        self.rb.clear()  # always start fresh
+        self.rb.clear() # always start fresh
 
         self.actor.train()
         self.critic.train()
@@ -142,14 +125,10 @@ class PPOTrainer(Trainer):
 
         return {"global_step": self.global_step}
 
-    # ------------------------------------------------------------------
-    # FIX 2: update() now always has a full buffer — no early-exit guard
-    # ------------------------------------------------------------------
     def update(self) -> dict:
         """Compute GAE and run PPO clipped-objective epochs."""
         cfg = self.config
 
-        # --- GAE ---
         with torch.no_grad():
             next_value = self.critic(self.current_obs).flatten()
             advantages  = torch.zeros_like(self.rb.rewards)
@@ -168,7 +147,6 @@ class PPOTrainer(Trainer):
 
             returns = advantages + self.rb.values
 
-        # --- Flatten batch ---
         b_obs        = self.rb.obs.reshape(-1, self.enc_dim)
         b_actions    = self.rb.actions.reshape(-1, self.action_dim)
         b_logprobs   = self.rb.logprobs.reshape(-1)
@@ -183,7 +161,6 @@ class PPOTrainer(Trainer):
         pg_loss_acc, v_loss_acc, ent_loss_acc = 0.0, 0.0, 0.0
         num_updates = int(cfg.update_epochs) * int(cfg.num_minibatches)
 
-        # --- PPO epochs ---
         for _ in range(int(cfg.update_epochs)):
             np.random.shuffle(b_inds)
             for start in range(0, batch_size, minibatch_size):
@@ -240,10 +217,8 @@ class PPOTrainer(Trainer):
             "losses/entropy_loss": ent_loss_acc / num_updates,
         }
 
-    # ------------------------------------------------------------------
-    # Training loop
-    # ------------------------------------------------------------------
     def train(self):
+        """Main training loop for PPO."""
         cfg = self.config
         total_timesteps = int(cfg.total_timesteps)
         ckpt_every      = int(cfg.checkpoint_interval)
@@ -279,7 +254,7 @@ class PPOTrainer(Trainer):
             metrics["charts/SPS"]         = sps
             metrics["charts/update"]      = update_count
 
-            # Always log to terminal
+            # Log to terminal
             print(
                 f"[PPO] update={update_count} step={self.global_step:,} "
                 f"| SPS={sps} "
@@ -287,7 +262,7 @@ class PPOTrainer(Trainer):
                 f"| p_loss={metrics['losses/policy_loss']:.4f}"
             )
 
-            # Always log to W&B every update
+            # Log to W&B every update
             if self.wandb_run is not None:
                 self.wandb_run.log(metrics, step=self.global_step)
 
@@ -305,7 +280,6 @@ class PPOTrainer(Trainer):
                     self.wandb_run.log(eval_metrics, step=self.global_step)
                 
                 last_eval_step = self.global_step
-            # ==========================================================
 
             # Checkpoint: trigger once per ckpt_every steps
             if self.global_step - last_ckpt_step >= ckpt_every:
@@ -313,12 +287,9 @@ class PPOTrainer(Trainer):
                 last_ckpt_step = self.global_step
 
         print(f"[PPO] Training complete — {self.global_step:,} steps over {update_count} updates.")
-    # ------------------------------------------------------------------
-    # Evaluation
-    # ------------------------------------------------------------------
+ 
     def evaluate(self, num_of_episodes: int) -> dict:
         """Deterministic evaluation using policy mean."""
-        # FIX 3: explicitly set eval mode so dropout/BN behave correctly
         self.actor.eval()
         self.critic.eval()
 
@@ -352,9 +323,6 @@ class PPOTrainer(Trainer):
             "eval/std_return":  float(np.std(returns[:num_of_episodes])),
         }
 
-    # ------------------------------------------------------------------
-    # Checkpointing
-    # ------------------------------------------------------------------
     def save(self, path: str):
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
         torch.save(

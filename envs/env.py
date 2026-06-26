@@ -30,8 +30,11 @@ try:
     from envs.managers.reward_manager import PlatformRewardsCfg
     from envs.managers.termination_manager import PlatformTerminationsCfg
     from isaaclab.envs.mdp.actions import JointPositionActionCfg
+
     @configclass
     class MyActionsCfg:
+        """Action configuration for the Isaac Lab RL environment."""
+
         joint_position: JointPositionActionCfg = JointPositionActionCfg(
         asset_name="robot",
         joint_names=[".*"],
@@ -50,6 +53,11 @@ try:
 
     @configclass
     class MyEnvCfg(ManagerBasedRLEnvCfg):
+        """
+        Configuration for the Isaac Lab RL environment.
+        This class is used to configure the RL environment, including the scene, observations, actions, rewards, and terminations. 
+        It dynamically loads the scene configuration based on the provided class path.
+        """
         scene_class_path: str = "envs.scene_cfg:FrankaManipulationSceneCfg"
         num_envs: int = 128
         env_spacing: float = 2.5
@@ -110,6 +118,11 @@ except ImportError:
 
 
 class IsaacLabPlatformEnv(ManagerBasedRLEnv):
+    """
+    This class extends the ManagerBasedRLEnv. 
+    It initializes the environment with the provided configuration and sets up the observation and action spaces
+    based on the observations and actions defined in the configuration.
+    """
     def __init__(self, cfg: ManagerBasedRLEnvCfg):
         super().__init__(cfg=cfg)
 

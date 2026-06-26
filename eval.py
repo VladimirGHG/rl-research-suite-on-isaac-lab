@@ -1,10 +1,3 @@
-"""
-eval.py — Evaluation entry point.
-
-Loads a trained policy (local checkpoint or HuggingFace Hub) and runs
-deterministic evaluation episodes.
-"""
-
 import os
 import hydra
 import torch
@@ -19,6 +12,8 @@ from policies.from_hub import SB3HubPolicyWrapper
 
 
 def _load_local_policy(checkpoint_path: str, env, algo_cfg):
+    """Load a local checkpoint and return a policy object compatible with the environment."""
+
     ckpt = torch.load(checkpoint_path, map_location=env.device)
     if "qf1" in ckpt:
         trainer = SACTrainer(env, algo_cfg, wandb_run=None)
@@ -40,6 +35,8 @@ def _load_local_policy(checkpoint_path: str, env, algo_cfg):
 
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
 def main(cfg: DictConfig):
+    """Main evaluation function."""
+
     cfg.env.num_envs = 1
     env = IsaacLabPlatformEnv(cfg=cfg.env)
 

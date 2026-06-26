@@ -1,6 +1,4 @@
 from abc import ABC, abstractmethod
-from policies.base import BasePolicy   # FIX: was 'from rl_base.policies.base import BasePolicy'
-
 
 class Trainer(ABC):
     """Abstract base class defining the universal minimal training algorithm interface."""
@@ -8,14 +6,14 @@ class Trainer(ABC):
     def __init__(self, env, algo_cfg, wandb_run=None, resume_path=None):
         """
         Args:
-            env:         Active IsaacLabPlatformEnv instance.
-            algo_cfg:    Hydra config node for the algorithm (cfg.algo).
-            wandb_run:   Optional active W&B run for metric logging.
+            env: Active IsaacLabPlatformEnv instance.
+            algo_cfg: Hydra config node for the algorithm (cfg.algo).
+            wandb_run: Optional active W&B run for metric logging.
             resume_path: Optional path to checkpoint to resume from.
         """
-        self.env         = env
-        self.config      = algo_cfg
-        self.wandb_run   = wandb_run
+        self.env = env
+        self.config = algo_cfg
+        self.wandb_run = wandb_run
         self.resume_path = resume_path
 
     @abstractmethod

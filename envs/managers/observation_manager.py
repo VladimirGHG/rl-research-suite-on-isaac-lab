@@ -3,6 +3,7 @@ import isaaclab.envs.mdp as mdp
 from isaaclab.managers import ObservationGroupCfg, ObservationTermCfg
 from isaaclab.utils import configclass
 from envs.managers.common import get_ee_position
+
 # A private variable to hold the cached model.
 _CACHED_ENCODER = None
 
@@ -43,16 +44,18 @@ def relative_position(env, object_cfg_name: str = "object", ee_cfg_name: str = "
 class PlatformObservationsCfg:
     @configclass
     class PolicyCfg(ObservationGroupCfg):
+        """Observation group used for policy input."""
+        
         joint_pos_rel: ObservationTermCfg = ObservationTermCfg(func=mdp.joint_pos_rel)
         joint_vel_rel: ObservationTermCfg = ObservationTermCfg(func=mdp.joint_vel_rel)
         last_action: ObservationTermCfg = ObservationTermCfg(func=mdp.last_action)
         object_pos: ObservationTermCfg = ObservationTermCfg(func=object_position)
         ee_pos: ObservationTermCfg = ObservationTermCfg(func=ee_position)
         relative_pos: ObservationTermCfg = ObservationTermCfg(func=relative_position)
-        # visual_features: ObservationTermCfg = ObservationTermCfg(
-        #     func=encode_visual_observation,
-        #     params={"camera_cfg_name": "franka_wrist_camera"},
-        # )
+        visual_features: ObservationTermCfg = ObservationTermCfg(
+            func=encode_visual_observation,
+            params={"camera_cfg_name": "franka_wrist_camera"},
+        )
 
         def __post_init__(self):
             self.enable_corruption = False

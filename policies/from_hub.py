@@ -123,6 +123,8 @@ class SB3HubPolicyWrapper(BasePolicy):
             )
 
     def predict(self, observations: torch.Tensor, deterministic: bool = True) -> tuple:
+        """Predicts actions based on the provided observations using the loaded policy."""
+        
         if not _SB3_AVAILABLE:
             batch_size = observations.shape[0] if len(observations.shape) > 1 else 1
             mock_action = torch.zeros((batch_size, self._get_space_shape(self.env.action_space)), device=observations.device)

@@ -1,10 +1,7 @@
 import copy
 import os
 
-import numpy as np
 import torch
-import gymnasium as gym
-import torch.nn as nn
 import torch.nn.functional as F
 
 import copy
@@ -19,12 +16,17 @@ import torch.nn.functional as F
 from algorithms.base import Trainer
 from policies.custom.td3_policy import TD3Policy
 from envs.managers.common import get_ee_position
+
 # The PixelReplayBuffer class manages the storage and sampling of experiences for training.
 class PixelReplayBuffer(object):
     def __init__(self, num_envs: int, max_size: int, obs_dim: int, action_dim: int, device):
         self.max_size = max_size
         self.num_envs = num_envs
+<<<<<<< HEAD
         self.device = device # GPU, used only at sample time to move batches
+=======
+        self.device = device # GPU is used only at sample time to move batches
+>>>>>>> 67d5c65 (ref(Code cleanup))
         self.ptr = 0
         self.size = 0
 
@@ -108,16 +110,27 @@ class Td3Trainer(Trainer):
     def collect_rollout(self) -> dict:
         # Get raw pixels and encode them
         raw = self.env.scene["franka_wrist_camera"].data.output["rgb"]
+<<<<<<< HEAD
         raw_pixels = raw.permute(0, 3, 1, 2).float() / 255.0 # (B, 3, H, W)
+=======
+        raw_pixels = raw.permute(0, 3, 1, 2).float() / 255.0
+>>>>>>> 67d5c65 (ref(Code cleanup))
         
         with torch.no_grad():
-            visual_features = self.policy.encoder(raw_pixels)  # (B, 512)
+            visual_features = self.policy.encoder(raw_pixels)
             
+<<<<<<< HEAD
             object_pos = self.env.scene["object"].data.root_pos_w # (B, 3)
             ee_pos = get_ee_position(self.env, "robot") # (B, 3)
             relative_pos = object_pos - ee_pos # (B, 3)
+=======
+            # Get state features
+            object_pos = self.env.scene["object"].data.root_pos_w
+            ee_pos = get_ee_position(self.env, "robot")
+            relative_pos = object_pos - ee_pos
+>>>>>>> 67d5c65 (ref(Code cleanup))
             
-            # Normalize by dividing by 2.0 (but DO NOT clamp - preserve information)
+            # Normalize by dividing by 2.0
             object_pos_norm = object_pos / 2.0
             ee_pos_norm = ee_pos / 2.0
             relative_pos_norm = relative_pos / 2.0
@@ -127,7 +140,11 @@ class Td3Trainer(Trainer):
                 object_pos_norm,
                 ee_pos_norm,
                 relative_pos_norm
+<<<<<<< HEAD
             ], dim=-1) # (B, 521)
+=======
+            ], dim=-1)
+>>>>>>> 67d5c65 (ref(Code cleanup))
 
         if self.total_steps_collected < self.learning_starts:
             actions = torch.rand((self.num_envs, self.action_dim), device=self.device) * 2.0 - 1.0
@@ -178,6 +195,8 @@ class Td3Trainer(Trainer):
         }
 
     def update(self) -> dict:
+        """Performs a single update step for the TD3 algorithm, including critic and actor updates, and returns relevant metrics."""
+
         if self.total_steps_collected < self.learning_starts or \
         self.replay_buffer.size * self.num_envs < self.batch_size:
             return {"status": "Warm-up phase; skipping gradient updates."}
@@ -222,6 +241,8 @@ class Td3Trainer(Trainer):
         return metrics
 
     def evaluate(self) -> dict:
+        """Runs deterministic evaluation episodes and returns the mean reward across all environments."""
+
         obs, _ = self.env.reset()
         done = torch.zeros(self.num_envs, dtype=torch.bool, device=self.device)
         episode_rewards = torch.zeros(self.num_envs, dtype=torch.float32, device=self.device)
@@ -257,6 +278,10 @@ class Td3Trainer(Trainer):
         return {"eval_mean_reward": float(episode_rewards.mean().item())}
 
     def save(self, path: str):
+        """
+        Saves the current state of the trainer, including the policy networks, 
+        target networks, optimizers, and training progress to a specified file path.
+        """
         os.makedirs(os.path.dirname(path), exist_ok=True)
         save_dict = {
             "actor_state": self.policy.actor.state_dict(),
@@ -271,6 +296,7 @@ class Td3Trainer(Trainer):
         torch.save(save_dict, path)
 
     def load(self, path: str):
+        """Loads the trainer state from a specified file path."""
         checkpoint = torch.load(path, map_location=self.device)
         self.policy.actor.load_state_dict(checkpoint["actor_state"])
         self.policy.critic.load_state_dict(checkpoint["critic_state"])

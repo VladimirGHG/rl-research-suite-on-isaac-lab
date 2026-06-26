@@ -1,4 +1,4 @@
-scene_class_path: "envs.scene_cfg:ReachSceneCfg"
+scene_class_path: "envs.scene_cfg:ReachSceneCfg" # The scene configuration class for the Reach environment.
 task_name: franka_reach
 num_envs: 256
 env_spacing: 2.5

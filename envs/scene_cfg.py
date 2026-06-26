@@ -1,22 +1,9 @@
-"""
-Franka manipulation scene configuration.
-
-VALIDATED against Isaac Lab official docs (main, June 2026):
-- PushCubeSceneCfg INHERITS from FrankaManipulationSceneCfg (fixes the crash)
-  @configclass converts attributes to instance fields — you cannot copy them
-  as class attributes. Inheritance is the documented pattern.
-- Franka loaded via FRANKA_PANDA_CFG (tries pip path first, falls back to thirdparty)
-- RigidObjectCfg for physics-interactive objects
-- No 'activate_navigation_corridor' param (does not exist in UsdFileCfg)
-"""
-
 import isaaclab.sim as sim_utils
 from isaaclab.assets import ArticulationCfg, AssetBaseCfg, RigidObjectCfg
 from isaaclab.scene import InteractiveSceneCfg
 from isaaclab.sensors import TiledCameraCfg
 from isaaclab.utils import configclass
 
-# ── Franka pre-built config — try pip path first, fall back to thirdparty ─────
 try:
     from isaaclab_assets.robots.franka import FRANKA_PANDA_CFG
 except ImportError:
@@ -130,7 +117,6 @@ class PushCubeSceneCfg(FrankaManipulationSceneCfg):
     """
     PushCube task: adds a table; cube rests on it.
 
-    INHERITS from FrankaManipulationSceneCfg — NOT InteractiveSceneCfg.
     @configclass converts attributes to instance fields so you cannot access them
     as class attributes (FrankaManipulationSceneCfg.ground crashes).
     Inheritance automatically brings ground/light/robot/camera into this scene.

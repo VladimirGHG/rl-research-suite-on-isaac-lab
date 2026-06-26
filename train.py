@@ -28,6 +28,8 @@ ALGO_REGISTRY = {
 
 @hydra.main(version_base="1.3", config_path="configs", config_name="config")
 def main(cfg: DictConfig):
+    """Main training function for Isaac Lab RL experiments."""
+    
     algo_name = cfg.algo.get("name", "unknown_algo")
     task_name = cfg.env.get("task_name", "unknown_task")
     seed_val = cfg.get("seed", 42)

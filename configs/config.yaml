@@ -1,8 +1,8 @@
 defaults:
-  - env: reach_env
-  - reward: reward
-  - algo: sac
-  - experiment: default_run
+  - env: reach_env # environment to use
+  - reward: reward # reward function to use
+  - algo: sac # algorithm to use
+  - experiment: default_run # experiment configuration to use
   - _self_
 
 seed: 42

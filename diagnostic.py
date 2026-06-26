@@ -1,4 +1,3 @@
-"""Quick Isaac Lab diagnostic — run before training to verify all imports and asset names."""
 import argparse
 from isaaclab.app import AppLauncher
 
@@ -82,6 +81,8 @@ def main():
 
         @configclass
         class DiagEnvCfg(ManagerBasedRLEnvCfg):
+            """Diagnostic environment configuration for Isaac Lab."""
+
             scene: FrankaManipulationSceneCfg = FrankaManipulationSceneCfg(num_envs=1, env_spacing=2.5)
             observations: MinimalObsCfg = MinimalObsCfg()
             actions: MinimalActionsCfg = MinimalActionsCfg()
