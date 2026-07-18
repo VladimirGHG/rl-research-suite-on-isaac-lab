@@ -44,3 +44,11 @@ The launch point of the project is the train.py script. To run it, use:
 python train.py num_envs=XXX algo_cfg=XXX 
 ```
 #### You can directly add other flags to override the default settings, such as `total_timesteps`, `checkpoint_interval`, etc.
+
+## Team & Contributors
+
+This project was developed as part of the Integrated CPS Project (IP-7) for the Chair of Cyber-Physical Systems (CPS) at Montanuniversität, Leoben under Professor Nikolaus Feith.
+
+* **Anshul Aditya:** Developed the Proximal Policy Optimization (PPO) algorithm implementation.
+* **Anshul Nag:** Developed the Soft Actor-Critic (SAC) algorithm implementation.
+* **Vladimir Gharagulyan:** Developed the Twin Delayed DDPG (TD3) algorithm implementation.
