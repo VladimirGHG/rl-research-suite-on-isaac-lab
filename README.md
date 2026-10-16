@@ -1,7 +1,7 @@
 # rl-research-suite-on-isaac-lab
 
 ## Overview
-RL Research Suite on Isaac Lab is a tool that helps to easily run simulations by allowing one to set nearly every configuration using YAML config files. Hence, it eliminates the need to go through hundreds of lines of code each time, trying to find a single hyperparameter to change its value. The platform ensures a stable simulation pipeline, with numerous mock tests, and a strict structure for the algorithms to follow. It has three built-in RL algorithms: PPO, SAC, and TD3, which were successfully tested and run on the Franka Arm.
+RL Research Suite on Isaac Lab is a tool that helps to easily run simulations by allowing one to set nearly every configuration using YAML config files. Hence, it eliminates the need to go through hundreds of lines of code each time, trying to find a single hyperparameter to change its value. The platform ensures a stable simulation pipeline, with numerous mock tests and a strict structure for the algorithms to follow. It has three built-in RL algorithms: PPO, SAC, and TD3, which were successfully tested and run on the Franka Arm.
 
 The project consists of seven main folders:
 
@@ -34,7 +34,7 @@ After that, install the Isaac Lab submodule, the link to which is already added 
 ```bash
 git submodule update --init --recursive
 ```
-Finally, install all the required packages, using the requirements.txt:
+Finally, install all the required packages using the requirements.txt:
 ```bash
 pip install -r requirements.txt
 ```
@@ -47,7 +47,7 @@ python train.py num_envs=XXX algo_cfg=XXX
 
 ## Team & Contributors
 
-This project was developed as part of the Integrated CPS Project (IP-7) for the Chair of Cyber-Physical Systems (CPS) at Montanuniversität, Leoben under Professor Nikolaus Feith.
+This project was developed as part of the Integrated CPS Project (IP-7) for the Chair of Cyber-Physical Systems (CPS) at Montanuniversität, Leoben, under DI Nikolaus Feith.
 
 * **Anshul Aditya:** Developed the Proximal Policy Optimization (PPO) algorithm implementation.
 * **Anshul Nag:** Developed the Soft Actor-Critic (SAC) algorithm implementation.
